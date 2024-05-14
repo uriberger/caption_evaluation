@@ -38,6 +38,8 @@ class CompositeDataset(HumanRatingDataset):
                     first = False
                     continue
                 image_id = entry2iid[dataset_name](sample)
+                if len(image_id) == 0:
+                    continue
                 image_file_path = iid2file_path[dataset_name](image_id)
                 cap_num = dataset2caption_num[dataset_name]
                 for i in range(cap_num):
