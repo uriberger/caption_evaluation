@@ -1,6 +1,7 @@
 from human_rating_dataset import HumanRatingDataset
 import os
 import csv
+import json
 
 class CompositeDataset(HumanRatingDataset):
 
@@ -29,6 +30,20 @@ class CompositeDataset(HumanRatingDataset):
             'flickr30k': 4,
             'coco': 4
         }
+
+        if dataset_name.startswith('flickr'):
+            with open('/cs/labs/oabend/uriber/datasets/flickr30/karpathy/dataset_flickr30k.json', 'r') as fp:
+                json_data = json.load(fp)['images']
+            data = {x['imgid']: {'references': [y['raw'] for y in x['sentences']]} for x in json_data}
+        elif dataset_name == 'coco':
+            with open('/cs/snapless/gabis/uriber/CLIP_prefix_caption/dataset_coco.json', 'r') as fp:
+                json_data = json.load(fp)['images']
+            data = {x['cocoid']: {'references': [y['raw'] for y in x['sentences']]} for x in json_data}
+
+        for image_id in data.keys():
+            image_file_path = iid2file_path[dataset_name](image_id)
+            data[image_id]['file_path'] = image_file_path
+            data[image_id]['captions'] = []
         
         with open(human_rating_file_path, 'r') as fp:
             my_reader = csv.reader(fp, delimiter=';')
@@ -37,10 +52,10 @@ class CompositeDataset(HumanRatingDataset):
                 if first:
                     first = False
                     continue
-                image_id = entry2iid[dataset_name](sample)
-                if len(image_id) == 0:
+                image_id_str = entry2iid[dataset_name](sample)
+                if len(image_id_str) == 0:
                     continue
-                image_file_path = iid2file_path[dataset_name](image_id)
+                image_id = int(image_id_str)
                 cap_num = dataset2caption_num[dataset_name]
                 for i in range(cap_num):
-                    self.data.append({'image_path': image_file_path, 'caption': sample[28+i], 'rating': sample[28+cap_num+i]})
+                    data[image_id]['captions'].append({'caption': sample[28+i], 'rating': sample[28+cap_num+i]})
