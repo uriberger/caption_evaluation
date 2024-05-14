@@ -17,7 +17,7 @@ class CompositeDataset(HumanRatingDataset):
         iid2file_path = {
             'flickr8k': lambda x: f'/cs/labs/oabend/uriber/datasets/flickr30/images/{x}.jpg',
             'flickr30k': lambda x: f'/cs/labs/oabend/uriber/datasets/flickr30/images/{x}.jpg',
-            'coco': lambda x: f'/cs/labs/oabend/uriber/datasets/COCO/{x.split('_')[1]}/{x}'
+            'coco': lambda x: f'/cs/labs/oabend/uriber/datasets/COCO/{x.split("_")[1]}/{x}'
         }
         entry2iid = {
             'flickr8k': lambda x: x[27].split('/')[-1].split('_')[0],
