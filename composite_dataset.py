@@ -6,9 +6,20 @@ import json
 class CompositeDataset(HumanRatingDataset):
 
     def collect_data(self):
-        self.collect_data_for_dataset('flickr8k')
-        self.collect_data_for_dataset('flickr30k')
-        self.collect_data_for_dataset('coco')
+        datasets = ['flickr8k', 'flickr30k', 'coco']
+
+        for dataset in datasets:
+            self.collect_data_for_dataset(dataset)
+
+        res_str = 'Collected '
+        first = True
+        for dataset in datasets:
+            if first:
+                first = False
+            else:
+                res_str += ', '
+            res_str += f'{len(self.data[dataset])} samples for {dataset}'
+        print(res_str, flush=True)
 
     def collect_data_for_dataset(self, dataset_name):
         human_rating_dir = '/cs/labs/oabend/uriber/datasets/AMT_eval'
@@ -42,6 +53,8 @@ class CompositeDataset(HumanRatingDataset):
 
         for image_id in data.keys():
             image_file_path = iid2file_path[dataset_name](image_id)
+            if not os.path.isfile(image_file_path):
+                continue
             data[image_id]['file_path'] = image_file_path
             data[image_id]['captions'] = []
         
@@ -56,6 +69,8 @@ class CompositeDataset(HumanRatingDataset):
                 if len(image_id_str) == 0:
                     continue
                 image_id = int(image_id_str)
+                if image_id not in data:
+                    continue
                 cap_num = dataset2caption_num[dataset_name]
                 for i in range(cap_num):
                     data[image_id]['captions'].append({'caption': sample[28+i], 'rating': sample[28+cap_num+i]})
