@@ -1,6 +1,6 @@
 class HumanRatingDataset:
     def __init__(self):
-        self.data = []
+        self.data = {}
     
     def collect_data(self):
         return

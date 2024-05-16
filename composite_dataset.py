@@ -59,3 +59,5 @@ class CompositeDataset(HumanRatingDataset):
                 cap_num = dataset2caption_num[dataset_name]
                 for i in range(cap_num):
                     data[image_id]['captions'].append({'caption': sample[28+i], 'rating': sample[28+cap_num+i]})
+
+        self.data[dataset_name] = data
