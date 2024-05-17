@@ -11,7 +11,7 @@ iid2file_path = {
 entry2iid = {
     'flickr8k': lambda x: x[27].split('/')[-1].split('_')[0],
     'flickr30k': lambda x: x[27].split('/')[-1].split('.')[0],
-    'coco': lambda x: x[27].split('/')[-1]
+    'coco': lambda x: x[27].split('/')[-1].split('_')[-1].split('.')[0]
 }
 dataset2caption_num = {
     'flickr8k': 3,
