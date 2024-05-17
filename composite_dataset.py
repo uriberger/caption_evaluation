@@ -45,9 +45,9 @@ class CompositeDataset(HumanRatingDataset):
         if dataset_name.startswith('flickr'):
             with open('/cs/labs/oabend/uriber/datasets/flickr30/karpathy/dataset_flickr30k.json', 'r') as fp:
                 json_data = json.load(fp)['images']
-            data = {x['imgid']: {
+            data = {int(x['filename'].split('.')[0]): {
                 'references': [y['raw'] for y in x['sentences']],
-                'file_path': f'/cs/labs/oabend/uriber/datasets/flickr30/images/{x["imgid"]}.jpg',
+                'file_path': f'/cs/labs/oabend/uriber/datasets/flickr30/images/{x["filename"]}',
                 'captions': []
                 } for x in json_data}
         elif dataset_name == 'coco':
