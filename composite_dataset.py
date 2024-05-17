@@ -36,7 +36,7 @@ class CompositeDataset(HumanRatingDataset):
                 first = False
             else:
                 res_str += ', '
-            res_str += f'{len(self.data[dataset])} images and {len([x for outer in self.data[dataset].values() for x in outer['captions']])} captions for {dataset}'
+            res_str += f'{len(self.data[dataset])} images and {len([x for outer in self.data[dataset].values() for x in outer["captions"]])} captions for {dataset}'
         print(res_str, flush=True)
 
     def collect_data_for_dataset(self, dataset_name):
