@@ -45,19 +45,20 @@ class CompositeDataset(HumanRatingDataset):
         if dataset_name.startswith('flickr'):
             with open('/cs/labs/oabend/uriber/datasets/flickr30/karpathy/dataset_flickr30k.json', 'r') as fp:
                 json_data = json.load(fp)['images']
-            data = {x['imgid']: {'references': [y['raw'] for y in x['sentences']]} for x in json_data}
+            data = {x['imgid']: {
+                'references': [y['raw'] for y in x['sentences']],
+                'file_path': f'/cs/labs/oabend/uriber/datasets/flickr30/images/{x["imgid"]}.jpg',
+                'captions': []
+                } for x in json_data}
         elif dataset_name == 'coco':
             with open('/cs/snapless/gabis/uriber/CLIP_prefix_caption/dataset_coco.json', 'r') as fp:
                 json_data = json.load(fp)['images']
-            data = {x['cocoid']: {'references': [y['raw'] for y in x['sentences']]} for x in json_data}
+            data = {x['cocoid']: {
+                'references': [y['raw'] for y in x['sentences']],
+                'file_path': f'/cs/labs/oabend/uriber/datasets/COCO/{x["filepath"]}/{x["filename"]}',
+                'captions': []
+                } for x in json_data}
 
-        for image_id in data.keys():
-            image_file_path = iid2file_path[dataset_name](image_id)
-            if not os.path.isfile(image_file_path):
-                continue
-            data[image_id]['file_path'] = image_file_path
-            data[image_id]['captions'] = []
-        
         with open(human_rating_file_path, 'r') as fp:
             my_reader = csv.reader(fp, delimiter=';')
             first = True
