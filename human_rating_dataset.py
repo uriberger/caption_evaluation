@@ -41,7 +41,7 @@ class HumanRatingDataset:
                 ignore_refs = []
                 if 'ignore_refs' in caption_data:
                     ignore_refs = caption_data['ignore_refs']
-                references[new_id] = [references[i] for i in range(len(image_data['references'])) if i not in ignore_refs]
+                references[new_id] = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
                 candidates[new_id] = [caption_data['caption']]
 
         # Tokenize
