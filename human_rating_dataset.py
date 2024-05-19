@@ -5,7 +5,6 @@ from pycocoevalcap.rouge.rouge import Rouge
 from pycocoevalcap.cider.cider import Cider
 from pycocoevalcap.spice.spice import Spice
 from evaluate import load
-import numpy as np
 from collections import OrderedDict
 
 class HumanRatingDataset:
@@ -29,7 +28,7 @@ class HumanRatingDataset:
         image_num = len(new_to_orig_image_id)
         digit_num = len(str(image_num))
         orig_to_new_id = lambda image_id, caption_ind: caption_ind*10**(digit_num) + orig_to_new_image_id[image_id]
-        new_to_orig_id = lambda new_id: (new_id % 10**(digit_num), new_id // 10**(digit_num))
+        new_to_orig_id = lambda new_id: (new_to_orig_image_id[new_id % 10**(digit_num)], new_id // 10**(digit_num))
 
         # Collect references and candidates
         references = {}
