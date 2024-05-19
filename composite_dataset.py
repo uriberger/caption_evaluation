@@ -2,6 +2,8 @@ from human_rating_dataset import HumanRatingDataset
 import os
 import csv
 import json
+from Levenshtein import distance
+import numpy as np
 
 iid2file_path = {
     'flickr8k': lambda x: f'/cs/labs/oabend/uriber/datasets/flickr30/images/{x}.jpg',
@@ -75,6 +77,9 @@ class CompositeDataset(HumanRatingDataset):
                 cap_num = dataset2caption_num[dataset_name]
                 for i in range(cap_num):
                     data[image_id]['captions'].append({'caption': sample[28+i], 'human_rating': sample[28+cap_num+i]})
+                    if i == 0:
+                        # First caption in this dataset is one of the references
+                        data[image_id]['captions'][0]['ignore_refs'] = [np.argmin([distance(sample[28+i], ref) for ref in data[image_id]['references']])]
 
         data = {x[0]: x[1] for x in data.items() if len(x[1]['captions']) > 0}
 

@@ -34,12 +34,14 @@ class HumanRatingDataset:
         # Collect references and candidates
         references = {}
         candidates = {}
-        for i in range(len(new_to_orig_image_id)):
-            orig_image_id = i
+        for orig_image_id in new_to_orig_image_id:
             image_data = self.data[dataset_name][orig_image_id]
             for caption_ind, caption_data in enumerate(image_data['captions']):
                 new_id = orig_to_new_id(orig_image_id, caption_ind)
-                references[new_id] = image_data['references']
+                ignore_refs = []
+                if 'ignore_refs' in caption_data:
+                    ignore_refs = caption_data['ignore_refs']
+                references[new_id] = [references[i] for i in range(len(image_data['references'])) if i not in ignore_refs]
                 candidates[new_id] = [caption_data['caption']]
 
         # Tokenize
