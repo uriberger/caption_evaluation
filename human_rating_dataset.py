@@ -10,6 +10,12 @@ import scipy.stats as stats
 import numpy as np
 import matplotlib.pyplot as plt
 import nltk.translate.nist_score as nist_score
+import os
+import json
+import sys
+import subprocess
+import shutil
+import pathlib
 
 class HumanRatingDataset:
     def __init__(self):
@@ -26,6 +32,7 @@ class HumanRatingDataset:
         self.compute_coco_metrics(dataset_name)
         self.compute_huggingface_metrics(dataset_name)
         self.compute_sentence_level_nltk_metrics(dataset_name)
+        self.compute_clipscore(dataset_name)
         self.compute_sacrebleu_metrics(dataset_name)
 
     def compute_coco_metrics(self, dataset_name):
@@ -143,6 +150,81 @@ class HumanRatingDataset:
                 references = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
                 candidate = caption_data['caption']
                 self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['NIST'] = nist_score.sentence_nist(hypothesis=candidate, references = references)
+    
+    def get_candidate_num_per_image(self, dataset_name):
+        return
+    
+    def get_file_name2iid_func(self, dataset_name):
+        return
+    
+    def compute_clipscore(self, dataset_name):
+        # The CLIPScore metrics require a mapping from image id to candidate. Since we have multiple candidates per image, we need to run it multiple times
+        N = self.get_candidate_num_per_image(dataset_name)
+        for caption_ind in range(N):
+            # First, create a temporary json file with image file names and caption, to be used by clip score
+            temp_cands_file_name = f'temp_cands_{dataset_name}.json'
+            temp_refs_file_name = f'temp_refs_{dataset_name}.json'
+            temp_res_file = f'temp_clipscore.json'
+            temp_image_dir = None
+
+            references = {}
+            candidates = {}
+            image_dir = None
+            for image_data in self.data[dataset_name].values():
+                caption_data = image_data['captions'][caption_ind]
+                ignore_refs = []
+                if 'ignore_refs' in caption_data:
+                    ignore_refs = caption_data['ignore_refs']
+                cur_references = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
+                cur_candidate = caption_data['caption']
+                file_name = image_data['file_path'].split('/')[-1].split('.')[0]
+                references[file_name] = cur_references
+                candidates[file_name] = cur_candidate
+                cur_image_dir = '/'.join(image_data['file_path'].split('/')[:-1])
+                if image_dir is None:
+                    image_dir = cur_image_dir
+                else:
+                    assert cur_image_dir == image_dir, f'Can\'t run clipscore, found images from two different directories:\n{image_dir}\n{cur_image_dir}'
+
+            # CLIPScore expects all the images in the target directory to have a candidate; To make sure this is true, move images to a new directory
+            image_paths = [os.path.join(image_dir, path) for path in os.listdir(image_dir) if path.endswith(('.png', '.jpg', '.jpeg', '.tiff'))]
+            image_ids = [pathlib.Path(path).stem for path in image_paths]
+            if len(image_ids) > len([x for x in image_ids if x in candidates]):
+                temp_image_dir = f'temp_{dataset_name}_images'
+                os.mkdir(temp_image_dir)
+                for file_name in candidates.keys():
+                    _ = shutil.copy(os.path.join(image_dir, f'{file_name}.jpg'), temp_image_dir)
+                image_dir = temp_image_dir
+
+            with open(temp_cands_file_name, 'w') as fp:
+                fp.write(json.dumps(candidates))
+
+            with open(temp_refs_file_name, 'w') as fp:
+                fp.write(json.dumps(references))
+
+            _ = subprocess.call([sys.executable, 'clipscore/clipscore.py',
+                                 temp_cands_file_name,
+                                 image_dir,
+                                 '--references_json', temp_refs_file_name,
+                                 '--compute_other_ref_metrics', '0',
+                                 '--save_per_instance', temp_res_file])
+            
+            # Log results
+            with open(temp_res_file, 'r') as fp:
+                results = json.load(fp)
+
+            file_name2iid = self.get_file_name2iid_func(dataset_name)
+            for file_name, score_dict in results.items():
+                image_id = file_name2iid(file_name)
+                for metric, score in score_dict.items():
+                    self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics'][metric] = score
+
+            # Now, delete the temporary files
+            os.remove(temp_cands_file_name)
+            os.remove(temp_refs_file_name)
+            os.remove(temp_res_file)
+            if temp_image_dir is not None:
+                shutil.rmtree(temp_image_dir)
     
     def compute_sacrebleu_metrics(self, dataset_name):
         # TER

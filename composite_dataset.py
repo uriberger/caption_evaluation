@@ -10,6 +10,11 @@ iid2file_path = {
     'flickr30k': lambda x: f'/cs/labs/oabend/uriber/datasets/flickr30/images/{x}.jpg',
     'coco': lambda x: f'/cs/labs/oabend/uriber/datasets/COCO/{x.split("_")[1]}/{x}'
 }
+file_name2iid = {
+    'flickr8k': lambda x: int(x),
+    'flickr30k': lambda x: int(x),
+    'coco': lambda x: int(x.split('_')[-1])
+}
 entry2iid = {
     'flickr8k': lambda x: x[27].split('/')[-1].split('_')[0],
     'flickr30k': lambda x: x[27].split('/')[-1].split('.')[0],
@@ -24,7 +29,12 @@ dataset_to_file_name = {'flickr8k': '8k', 'flickr30k': '30k', 'coco': 'coco'}
 human_rating_dir = '/cs/labs/oabend/uriber/datasets/AMT_eval'
 
 class CompositeDataset(HumanRatingDataset):
-
+    def get_candidate_num_per_image(self, dataset_name):
+        return dataset2caption_num[dataset_name]
+    
+    def get_file_name2iid_func(self, dataset_name):
+        return file_name2iid[dataset_name]
+    
     def collect_data(self):
         datasets = ['flickr8k', 'flickr30k', 'coco']
 
