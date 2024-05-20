@@ -122,7 +122,7 @@ class HumanRatingDataset:
         human_rating_list = []
         metric_to_score_list = {metric: [] for metric in all_metrics}
         metric_to_missing_inds = {metric: set() for metric in all_metrics}
-        for dataset_data in data.values():
+        for dataset_data in self.data.values():
             for image_data in dataset_data.values():
                 for caption_data in image_data['captions']:
                     for metric in all_metrics:
