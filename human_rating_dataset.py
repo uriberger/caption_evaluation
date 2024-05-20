@@ -6,6 +6,10 @@ from pycocoevalcap.cider.cider import Cider
 from pycocoevalcap.spice.spice import Spice
 from evaluate import load
 from collections import OrderedDict
+import scipy.stats as stats
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib
 
 class HumanRatingDataset:
     def __init__(self):
@@ -112,3 +116,62 @@ class HumanRatingDataset:
             for id, score in zip(ref_ids, scores):
                 orig_image_id, caption_id = new_to_orig_id(id)
                 self.data[dataset_name][orig_image_id]['captions'][caption_id]['automatic_metrics'][metric_name] = score
+
+    def compute_correlation(self):
+        all_metrics = list(set([x for dataset_data in self.data.values() for image_data in dataset_data.values() for caption_data in image_data['captions'] for x in caption_data['automatic_metrics'].keys()]))
+        human_rating_list = []
+        metric_to_score_list = {metric: [] for metric in all_metrics}
+        metric_to_missing_inds = {metric: set() for metric in all_metrics}
+        for dataset_data in data.values():
+            for image_data in dataset_data.values():
+                for caption_data in image_data['captions']:
+                    for metric in all_metrics:
+                        if metric not in caption_data['automatic_metrics'] or np.isnan(caption_data['automatic_metrics'][metric]):
+                            metric_to_missing_inds[metric].add(len(human_rating_list))
+                            metric_to_score_list[metric].append(np.nan)
+                        else:
+                            metric_to_score_list[metric].append(caption_data['automatic_metrics'][metric])
+                    human_rating_list.append(caption_data['human_rating'])
+
+        self.compute_mutual_correlation(metric_to_score_list, metric_to_missing_inds)
+        return self.compute_correlation_with_human_ratings(human_rating_list, metric_to_score_list, metric_to_missing_inds)
+    
+    def compute_correlation_with_human_ratings(self, human_rating_list, metric_to_score_list, metric_to_missing_inds):
+        all_metrics = list(metric_to_score_list.keys())
+        
+        metric_to_corr = {}
+        for metric in all_metrics:
+            cur_human_rating_list = [human_rating_list[i] for i in range(len(human_rating_list)) if i not in metric_to_missing_inds[metric]]
+            cur_metric_score_list = [metric_to_score_list[metric][i] for i in range(len(metric_to_score_list[metric])) if i not in metric_to_missing_inds[metric]]
+            metric_to_corr[metric] = stats.pearsonr(cur_human_rating_list, cur_metric_score_list)
+
+        res = [(metric, metric_to_corr[metric].statistic) for metric in all_metrics]
+        res.sort(key=lambda x:x[1], reverse=True)
+        return res
+    
+    def compute_mutual_correlation(self, metric_to_score_list, metric_to_missing_inds):
+        all_metrics = sorted(list(metric_to_score_list.keys()))
+        n = len(all_metrics)
+        corr_mat = np.zeros((n, n))
+        for i in range(n):
+            for j in range(i, n):
+                metric1 = all_metrics[i]
+                metric2 = all_metrics[j]
+                joint_missing_inds = metric_to_missing_inds[metric1].union(metric_to_missing_inds[metric2])
+                metric1_score_list = [metric_to_score_list[metric1][i] for i in range(len(metric_to_score_list[metric1])) if i not in joint_missing_inds]
+                metric2_score_list = [metric_to_score_list[metric2][i] for i in range(len(metric_to_score_list[metric2])) if i not in joint_missing_inds]
+                cur_corr = stats.pearsonr(metric1_score_list, metric2_score_list).statistic
+                corr_mat[i, j] = cur_corr
+                corr_mat[j, i] = cur_corr
+
+        fig, ax = plt.subplots()
+        im = ax.imshow(corr_mat)
+        ax.set_xticks(np.arange(n), labels=all_metrics)
+        ax.set_yticks(np.arange(n), labels=all_metrics)
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+        for i in range(n):
+            for j in range(n):
+                text = ax.text(j, i, '%.2f' % corr_mat[i, j], ha="center", va="center", color="w", fontsize=6)
+        ax.set_title('Mutual correlation between metrics')
+        fig.tight_layout()
+        plt.savefig('mutual_corr.png')
