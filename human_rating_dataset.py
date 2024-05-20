@@ -16,10 +16,21 @@ import sys
 import subprocess
 import shutil
 import pathlib
+import pickle
+
+dump_file = 'dataset.pkl'
 
 class HumanRatingDataset:
     def __init__(self):
         self.data = {}
+
+    def dump(self):
+        with open(dump_file, 'wb') as fp:
+            pickle.dump(self.data, fp)
+
+    def load(self):
+        with open(dump_file, 'rb') as fp:
+            self.data = pickle.load(fp)
     
     def collect_data(self):
         return
