@@ -9,7 +9,6 @@ from collections import OrderedDict
 import scipy.stats as stats
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib
 
 class HumanRatingDataset:
     def __init__(self):
@@ -24,6 +23,7 @@ class HumanRatingDataset:
 
     def compute_metrics_for_dataset(self, dataset_name):
         self.compute_coco_metrics(dataset_name)
+        self.compute_huggingface_metrics(dataset_name)
 
     def compute_coco_metrics(self, dataset_name):
         # Some metrics are not compatabile with large image ids; map to small ones
@@ -96,26 +96,39 @@ class HumanRatingDataset:
         for submetric in spice_submetrics:
             metric_name_to_scores[f'SPICE_{submetric}'] = [x[submetric]['f'] for x in spice_scores]        
 
-        ####BERTScore###
-        # bertscore = load("bertscore")
-        # reference_list = list(references.items())
-        # reference_list.sort(key=lambda x:x[0])
-        # references = [x[1] for x in reference_list]
-        # prediction_list = list(candidates.items())
-        # prediction_list.sort(key=lambda x:x[0])
-        # predictions = [x[1][0] for x in prediction_list]
-        # results = bertscore.compute(predictions=predictions, references=references, lang='en')
-        # bertscore = statistics.mean(results['f1'])
-
         # Log scores
-        for id in ref_ids:
-            orig_image_id, caption_id = new_to_orig_id(id)
-            self.data[dataset_name][orig_image_id]['captions'][caption_id]['automatic_metrics'] = {}
-        
         for metric_name, scores in metric_name_to_scores.items():
             for id, score in zip(ref_ids, scores):
                 orig_image_id, caption_id = new_to_orig_id(id)
                 self.data[dataset_name][orig_image_id]['captions'][caption_id]['automatic_metrics'][metric_name] = score
+
+    def compute_huggingface_metrics(self, dataset_name):
+        # Collect references and candidates
+        references = []
+        candidates = []
+        image_id_caption_ind_pairs = []
+        for image_id, image_data in self.data[dataset_name].items():
+            for caption_ind, caption_data in enumerate(image_data['captions']):
+                image_id_caption_ind_pairs.append((image_id, caption_ind))
+                ignore_refs = []
+                if 'ignore_refs' in caption_data:
+                    ignore_refs = caption_data['ignore_refs']
+                references.append([image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs])
+                candidates.append(caption_data['caption'])
+
+        # Now, compute metrics
+        metric_name_to_scores = {}
+
+        ####BERTScore###
+        bertscore = load("bertscore")
+        results = bertscore.compute(predictions=candidates, references=references, lang='en')
+        metric_name_to_scores['BERTScore'] = results['f1']
+
+        # Log scores
+        for metric_name, scores in metric_name_to_scores.items():
+            for sample_info, score in zip(image_id_caption_ind_pairs, scores):
+                image_id, caption_id = sample_info
+                self.data[dataset_name][image_id]['captions'][caption_id]['automatic_metrics'][metric_name] = score
 
     def compute_correlation(self):
         all_metrics = list(set([x for dataset_data in self.data.values() for image_data in dataset_data.values() for caption_data in image_data['captions'] for x in caption_data['automatic_metrics'].keys()]))
