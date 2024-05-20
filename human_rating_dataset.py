@@ -9,6 +9,7 @@ from collections import OrderedDict
 import scipy.stats as stats
 import numpy as np
 import matplotlib.pyplot as plt
+import nltk.translate.nist_score as nist_score
 
 class HumanRatingDataset:
     def __init__(self):
@@ -24,6 +25,8 @@ class HumanRatingDataset:
     def compute_metrics_for_dataset(self, dataset_name):
         self.compute_coco_metrics(dataset_name)
         self.compute_huggingface_metrics(dataset_name)
+        self.compute_sentence_level_nltk_metrics(dataset_name)
+        self.compute_sacrebleu_metrics(dataset_name)
 
     def compute_coco_metrics(self, dataset_name):
         # Some metrics are not compatabile with large image ids; map to small ones
@@ -129,6 +132,21 @@ class HumanRatingDataset:
             for sample_info, score in zip(image_id_caption_ind_pairs, scores):
                 image_id, caption_id = sample_info
                 self.data[dataset_name][image_id]['captions'][caption_id]['automatic_metrics'][metric_name] = score
+
+    def compute_sentence_level_nltk_metrics(self, dataset_name):
+        # NIST
+        for image_id, image_data in self.data[dataset_name].items():
+            for caption_ind, caption_data in enumerate(image_data['captions']):
+                ignore_refs = []
+                if 'ignore_refs' in caption_data:
+                    ignore_refs = caption_data['ignore_refs']
+                references = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
+                candidate = caption_data['caption']
+                self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['NIST'] = nist_score.sentence_nist(hypothesis=candidate, references = references)
+    
+    def compute_sacrebleu_metrics(self, dataset_name):
+        # TER
+        return
 
     def compute_correlation(self):
         all_metrics = list(set([x for dataset_data in self.data.values() for image_data in dataset_data.values() for caption_data in image_data['captions'] for x in caption_data['automatic_metrics'].keys()]))
