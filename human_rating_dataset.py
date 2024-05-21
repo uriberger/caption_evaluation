@@ -42,9 +42,9 @@ class HumanRatingDataset:
     def compute_metrics_for_dataset(self, dataset_name):
         self.compute_coco_metrics(dataset_name)
         self.compute_huggingface_metrics(dataset_name)
+        self.compute_sentence_level_huggingface_metrics(dataset_name)
         self.compute_sentence_level_nltk_metrics(dataset_name)
         self.compute_clipscore(dataset_name)
-        self.compute_sacrebleu_metrics(dataset_name)
 
     def compute_coco_metrics(self, dataset_name):
         # Some metrics are not compatabile with large image ids; map to small ones
@@ -237,9 +237,17 @@ class HumanRatingDataset:
             if temp_image_dir is not None:
                 shutil.rmtree(temp_image_dir)
     
-    def compute_sacrebleu_metrics(self, dataset_name):
-        # TER
-        return
+    def compute_sentence_level_huggingface_metrics(self, dataset_name):
+        ter = load('ter')
+
+        for image_id, image_data in self.data[dataset_name].items():
+            for caption_ind, caption_data in enumerate(image_data['captions']):
+                ignore_refs = []
+                if 'ignore_refs' in caption_data:
+                    ignore_refs = caption_data['ignore_refs']
+                references = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
+                candidate = caption_data['caption']
+                self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['TER'] = ter.compute(predictions=[candidate], references=[references])['score']
 
     def compute_correlation(self):
         all_metrics = list(set([x for dataset_data in self.data.values() for image_data in dataset_data.values() for caption_data in image_data['captions'] for x in caption_data['automatic_metrics'].keys()]))
