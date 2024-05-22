@@ -361,7 +361,7 @@ class HumanRatingDataset:
 
         reg = LinearRegression()
         res = {}
-        for direction in ['forward', 'backward']
+        for direction in ['forward', 'backward']:
             sfs = SequentialFeatureSelector(reg, direction=direction)
             sfs.fit(X, y)
             res[direction] = [all_metrics[i] for i in range(len(all_metrics)) if sfs.get_support()[i]]
