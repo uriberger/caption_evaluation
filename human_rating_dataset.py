@@ -17,6 +17,8 @@ import subprocess
 import shutil
 import pathlib
 import pickle
+from sklearn.feature_selection import SequentialFeatureSelector
+from sklearn.linear_model import LinearRegression
 
 dump_file = 'dataset.pkl'
 
@@ -249,8 +251,15 @@ class HumanRatingDataset:
                 candidate = caption_data['caption']
                 self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['TER'] = ter.compute(predictions=[candidate], references=[references])['score']
 
-    def compute_correlation(self):
+    def get_all_metrics(self):
         all_metrics = list(set([x for dataset_data in self.data.values() for image_data in dataset_data.values() for caption_data in image_data['captions'] for x in caption_data['automatic_metrics'].keys()]))
+        all_metrics = [x for x in all_metrics if not x.startswith('SPICE_')]
+        all_metrics.sort()
+
+        return all_metrics
+
+    def compute_correlation(self):
+        all_metrics = self.get_all_metrics()
         human_rating_list = []
         metric_to_score_list = {metric: [] for metric in all_metrics}
         metric_to_missing_inds = {metric: set() for metric in all_metrics}
@@ -269,7 +278,7 @@ class HumanRatingDataset:
         return self.compute_correlation_with_human_ratings(human_rating_list, metric_to_score_list, metric_to_missing_inds)
     
     def compute_correlation_with_human_ratings(self, human_rating_list, metric_to_score_list, metric_to_missing_inds):
-        all_metrics = list(metric_to_score_list.keys())
+        all_metrics = self.get_all_metrics()
         
         metric_to_corr = {}
         for metric in all_metrics:
@@ -282,7 +291,7 @@ class HumanRatingDataset:
         return res
     
     def compute_mutual_correlation(self, metric_to_score_list, metric_to_missing_inds):
-        all_metrics = sorted(list(metric_to_score_list.keys()))
+        all_metrics = self.get_all_metrics()
         n = len(all_metrics)
         corr_mat = np.zeros((n, n))
         for i in range(n):
@@ -307,3 +316,29 @@ class HumanRatingDataset:
         ax.set_title('Mutual correlation between metrics')
         fig.tight_layout()
         plt.savefig('mutual_corr.png')
+
+    def select_predictor_metrics(self):
+        all_metrics = self.get_all_metrics()
+        all_metrics.sort()
+
+        N = sum([sum([len(image_data['captions']) for image_data in dataset_data.values()]) for dataset_data in self.data.values()])
+        X = np.zeros((N, len(all_metrics)))
+        y = np.zeros(N)
+
+        cur_sample_ind = 0
+        for dataset_data in self.data.values():
+            for image_data in dataset_data.values():
+                for caption_data in image_data['captions']:
+                    y[cur_sample_ind] = caption_data['human_rating']
+                    for metric_ind, metric in enumerate(all_metrics):
+                        X[cur_sample_ind, metric_ind] = caption_data['automatic_metrics'][metric]
+                    cur_sample_ind += 1
+
+        reg = LinearRegression()
+        res = {}
+        for direction in ['forward', 'backward']
+            sfs = SequentialFeatureSelector(reg, direction=direction)
+            sfs.fit(X, y)
+            res[direction] = [all_metrics[i] for i in range(len(all_metrics)) if sfs.get_support()[i]]
+
+        return res
