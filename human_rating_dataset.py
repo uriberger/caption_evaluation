@@ -17,6 +17,7 @@ import subprocess
 import shutil
 import pathlib
 import pickle
+from SMURF.smurf.eval import smurf_eval_captions
 from sklearn.feature_selection import SequentialFeatureSelector
 from sklearn.linear_model import LinearRegression
 
@@ -47,6 +48,7 @@ class HumanRatingDataset:
         self.compute_sentence_level_huggingface_metrics(dataset_name)
         self.compute_sentence_level_nltk_metrics(dataset_name)
         self.compute_clipscore(dataset_name)
+        self.compute_smurf(dataset_name)
 
     def compute_coco_metrics(self, dataset_name):
         # Some metrics are not compatabile with large image ids; map to small ones
@@ -250,6 +252,29 @@ class HumanRatingDataset:
                 references = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
                 candidate = caption_data['caption']
                 self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['TER'] = ter.compute(predictions=[candidate], references=[references])['score']
+
+    def compute_smurf(self, dataset_name):
+        image_id_caption_ind_pairs = []
+        references = []
+        candidates = []
+        for image_id, image_data in self.data[dataset_name].items():
+            for caption_ind, caption_data in enumerate(image_data['captions']):
+                ignore_refs = []
+                if 'ignore_refs' in caption_data:
+                    ignore_refs = caption_data['ignore_refs']
+                cur_refs = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
+                cur_cand = caption_data['caption']
+                references.append(cur_refs)
+                candidates.append(cur_cand)
+                image_id_caption_ind_pairs.append((image_id, caption_ind))
+
+        meta_scorer = smurf_eval_captions(references, candidates, fuse=True)
+        os.chdir('SMURF')
+        scores = meta_scorer.evaluate()
+        os.chdir('..')
+        for sample_entry, score in zip(image_id_caption_ind_pairs, scores['SMURF']):
+            image_id, caption_ind = sample_entry
+            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['SMURF'] = score
 
     def get_all_metrics(self):
         all_metrics = list(set([x for dataset_data in self.data.values() for image_data in dataset_data.values() for caption_data in image_data['captions'] for x in caption_data['automatic_metrics'].keys()]))
