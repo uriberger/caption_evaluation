@@ -256,7 +256,7 @@ class HumanRatingDataset:
                     ignore_refs = caption_data['ignore_refs']
                 references = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
                 candidate = caption_data['caption']
-                self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['TER'] = ter.compute(predictions=[candidate], references=[references])['score']
+                self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['TER'] = (-1)*ter.compute(predictions=[candidate], references=[references])['score']
 
     def compute_smurf(self, dataset_name):
         image_id_caption_ind_pairs = []
