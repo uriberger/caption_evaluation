@@ -18,8 +18,12 @@ import shutil
 import pathlib
 import pickle
 from SMURF.smurf.eval import smurf_eval_captions
+import gensim.downloader as api
+from nltk.corpus import stopwords
+from nltk import download
 from sklearn.feature_selection import SequentialFeatureSelector
 from sklearn.linear_model import LinearRegression
+import statistics
 
 dump_file = 'dataset.pkl'
 
@@ -49,6 +53,7 @@ class HumanRatingDataset:
         self.compute_sentence_level_nltk_metrics(dataset_name)
         self.compute_clipscore(dataset_name)
         self.compute_smurf(dataset_name)
+        self.compute_wmd(dataset_name)
 
     def compute_coco_metrics(self, dataset_name):
         # Some metrics are not compatabile with large image ids; map to small ones
@@ -275,6 +280,31 @@ class HumanRatingDataset:
         for sample_entry, score in zip(image_id_caption_ind_pairs, scores['SMURF']):
             image_id, caption_ind = sample_entry
             self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['SMURF'] = score
+    
+    def compute_wmd(self, dataset_name, agg_method):
+        model = api.load('word2vec-google-news-300')
+        _ = download('stopwords')
+        stop_words = stopwords.words('english')
+
+        def preprocess(sentence):
+            return [w for w in sentence.lower().split() if w not in stop_words]
+        
+        for image_id, image_data in self.data[dataset_name].items():
+            for caption_ind, caption_data in enumerate(image_data['captions']):
+                ignore_refs = []
+                if 'ignore_refs' in caption_data:
+                    ignore_refs = caption_data['ignore_refs']
+                references = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
+                candidate = caption_data['caption']
+
+                references = [preprocess(x) for x in references]
+                candidate = preprocess(candidate)
+                similarities = [(-1)*model.wmdistance(candidate, x) for x in references]
+                if agg_method == 'mean':
+                    similarity = statistics.mean(similarities)
+                elif agg_method == 'max':
+                    similarity = max(similarities)
+                self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['WMD'] = similarity
 
     def get_all_metrics(self):
         all_metrics = list(set([x for dataset_data in self.data.values() for image_data in dataset_data.values() for caption_data in image_data['captions'] for x in caption_data['automatic_metrics'].keys()]))
