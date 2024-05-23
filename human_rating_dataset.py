@@ -486,8 +486,8 @@ class HumanRatingDataset:
         refpac_scores = 2 * pac_scores * per_instance_text_text / (pac_scores + per_instance_text_text)
 
         for image_id, caption_ind, pac_score, refpac_score in zip(image_ids, caption_inds, pac_scores, refpac_scores):
-            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic']['PAC'] = pac_score
-            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic']['RefPAC'] = refpac_score
+            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['PAC'] = pac_score
+            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['RefPAC'] = refpac_score
 
     def get_all_metrics(self):
         all_metrics = list(set([x for dataset_data in self.data.values() for image_data in dataset_data.values() for caption_data in image_data['captions'] for x in caption_data['automatic_metrics'].keys()]))
