@@ -17,6 +17,7 @@ import subprocess
 import shutil
 import pathlib
 import pickle
+import math
 from SMURF.smurf.eval import smurf_eval_captions
 import gensim.downloader as api
 from nltk.corpus import stopwords
@@ -304,6 +305,8 @@ class HumanRatingDataset:
                     similarity = statistics.mean(similarities)
                 elif agg_method == 'max':
                     similarity = max(similarities)
+                if similarity == -math.inf:
+                    similarity = 0
                 self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['WMD'] = similarity
 
     def get_all_metrics(self):
