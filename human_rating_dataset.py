@@ -13,6 +13,7 @@ import nltk.translate.nist_score as nist_score
 import os
 import json
 import sys
+sys.path.append('NNEval')
 import subprocess
 import shutil
 import pathlib
@@ -22,9 +23,12 @@ from SMURF.smurf.eval import smurf_eval_captions
 import gensim.downloader as api
 from nltk.corpus import stopwords
 from nltk import download
+from nubia_score import Nubia
 from sklearn.feature_selection import SequentialFeatureSelector
 from sklearn.linear_model import LinearRegression
 import statistics
+import gensim
+import tensorflow as tf
 
 dump_file = 'dataset.pkl'
 
@@ -308,6 +312,125 @@ class HumanRatingDataset:
                 if similarity == -math.inf:
                     similarity = 0
                 self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['WMD'] = similarity
+    
+    def compute_nubia(self, dataset_name, agg_method):
+        nubia = Nubia()
+        for image_id, image_data in self.data[dataset_name].items():
+            for caption_ind, caption_data in enumerate(image_data['captions']):
+                ignore_refs = []
+                if 'ignore_refs' in caption_data:
+                    ignore_refs = caption_data['ignore_refs']
+                references = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
+                candidate = caption_data['caption']
+
+                scores = [nubia.score(x, candidate) for x in references]
+                if agg_method == 'mean':
+                    score = statistics.mean(scores)
+                elif agg_method == 'max':
+                    score = max(scores)
+                self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['nubia'] = score
+
+    def compute_nneval(self, dataset_name):
+        # Some metrics are not compatabile with large image ids; map to small ones
+        new_to_orig_image_id = list(self.data[dataset_name].keys())
+        orig_to_new_image_id = {new_to_orig_image_id[i]: i for i in range(len(new_to_orig_image_id))}
+        image_num = len(new_to_orig_image_id)
+        digit_num = len(str(image_num))
+        orig_to_new_id = lambda image_id, caption_ind: caption_ind*10**(digit_num) + orig_to_new_image_id[image_id]
+        new_to_orig_id = lambda new_id: (new_to_orig_image_id[new_id % 10**(digit_num)], new_id // 10**(digit_num))
+
+        # Collect references and candidates
+        references = {}
+        candidates = {}
+        for orig_image_id in new_to_orig_image_id:
+            image_data = self.data[dataset_name][orig_image_id]
+            for caption_ind, caption_data in enumerate(image_data['captions']):
+                new_id = orig_to_new_id(orig_image_id, caption_ind)
+                ignore_refs = []
+                if 'ignore_refs' in caption_data:
+                    ignore_refs = caption_data['ignore_refs']
+                references[new_id] = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
+                candidates[new_id] = [caption_data['caption']]
+
+        # Tokenize
+        tokenizer = PTBTokenizer()
+        ref = tokenizer.tokenize({x[0]: [{'caption': y} for y in x[1]] for x in references.items()})
+        hypo = tokenizer.tokenize({x[0]: [{'caption': y} for y in x[1]] for x in candidates.items()})
+    
+        assert(hypo.keys() == ref.keys())
+        ImgId=hypo.keys() # for ensuring that all metrics get the same keys and return values in the same order
+        stop_words = stopwords.words('english')
+        embeddings = gensim.models.KeyedVectors.load_word2vec_format( "NNEval/GoogleNews-vectors-negative300.bin" , binary=True ) 
+
+        _, blscores=Bleu(4).compute_score(ref,hypo)
+        #Rogue_L,Rogue_Lscores= Rouge().compute_score(ref,hypo,ImgId)
+        _, meteor_scores = Meteor().compute_score(ref,hypo)
+        
+        wmd_model = embeddings
+        wmd_model.init_sims(replace=True)
+        wmd_score=[]
+        for id_ref in ImgId:
+            c1=hypo[id_ref][0]
+            c1= c1.lower().split()
+            c1 = [w_ for w_ in c1 if w_ not in stop_words]    
+            distance=[]
+            for refs in ref[id_ref]:
+                c2=refs
+                c2= c2.lower().split()
+                c2 = [w_ for w_ in c2 if w_ not in stop_words]
+                temp= wmd_model.wmdistance(c1, c2)
+                if (np.isinf(temp)):
+                    temp=1000
+                distance.append(temp)
+            wmd_dis=min(distance)
+            wmd_similarity=np.exp(-wmd_dis)
+            wmd_score.append(wmd_similarity)
+    
+        CIDer=Cider()
+        _, cider_scores=CIDer.compute_score(ref,hypo)
+
+        _, spice_scores = Spice().compute_score(ref,hypo)
+
+        features={}
+        for i,ids in enumerate(ImgId):     
+            features[ids]=[
+                            meteor_scores[i],
+                            wmd_score[i],
+                            blscores[0][i],
+                            blscores[1][i],
+                            blscores[2][i],
+                            blscores[3][i],
+                            spice_scores[i],
+                            cider_scores[i]/10]
+            
+        import NNEval.configuration_nneval as configuration
+        model_config = configuration.ModelConfig()
+        from NNEval.nn_classify_model_nneval import build_model
+
+        def _step_test(sess, model, features):
+            nn_score= sess.run([model['nn_score']],  feed_dict={model['sentence_features']: features})            
+            return nn_score
+        
+        def process_scores(sc,BATCH_SIZE_INFERENCE):
+            score_list=[]
+            for i in range(BATCH_SIZE_INFERENCE):
+                score_list.append(sc[0][i][1])
+            return score_list
+
+        g = tf.Graph()
+        with g.as_default():
+            model = build_model(model_config)
+            init = tf.global_variables_initializer()
+            sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True))
+            checking=[1110] # model number
+            with tf.device('/gpu:1'): 
+                sess.run(init)
+                for s in checking:
+                    model['saver'].restore(sess, os.path.join(directory,'nn_classify_checkpoint{}.ckpt'.format(s)))
+                    for i in range(1):
+                        sc = _step_test(sess,model,features) 
+                    scores=process_scores(sc, len(features))
+                sess.close()
 
     def get_all_metrics(self):
         all_metrics = list(set([x for dataset_data in self.data.values() for image_data in dataset_data.values() for caption_data in image_data['captions'] for x in caption_data['automatic_metrics'].keys()]))
@@ -377,7 +500,6 @@ class HumanRatingDataset:
 
     def select_predictor_metrics(self):
         all_metrics = self.get_all_metrics()
-        all_metrics.sort()
 
         N = sum([sum([len(image_data['captions']) for image_data in dataset_data.values()]) for dataset_data in self.data.values()])
         X = np.zeros((N, len(all_metrics)))
