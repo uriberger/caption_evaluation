@@ -476,7 +476,7 @@ class HumanRatingDataset:
         model, preprocess = clip.load('ViT-B/32', device=device)
         model = model.to(device)
         model = model.float()
-        checkpoint = torch.load("checkpoints/clip_ViT-B-32.pth")
+        checkpoint = torch.load("pacscore/checkpoints/clip_ViT-B-32.pth")
         model.load_state_dict(checkpoint['state_dict'])
         model.eval()
 
