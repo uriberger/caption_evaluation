@@ -282,7 +282,7 @@ class HumanRatingDataset:
             image_id, caption_ind = sample_entry
             self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['SMURF'] = score
     
-    def compute_wmd(self, dataset_name, agg_method):
+    def compute_wmd(self, dataset_name, agg_method='mean'):
         model = api.load('word2vec-google-news-300')
         _ = download('stopwords')
         stop_words = stopwords.words('english')
