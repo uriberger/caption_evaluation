@@ -19,6 +19,7 @@ import shutil
 import pathlib
 import pickle
 import math
+import torch
 from SMURF.smurf.eval import smurf_eval_captions
 import gensim.downloader as api
 from nltk.corpus import stopwords
@@ -431,6 +432,62 @@ class HumanRatingDataset:
                         sc = _step_test(sess,model,features) 
                     scores=process_scores(sc, len(features))
                 sess.close()
+
+    def compute_pacscore(self, dataset_name):
+        image_ids = []
+        image_paths = []
+        caption_inds = []
+        references = []
+        candidates = []
+        for image_id, image_data in self.data[dataset_name].items():
+            for caption_ind, caption_data in enumerate(image_data['captions']):
+                ignore_refs = []
+                if 'ignore_refs' in caption_data:
+                    ignore_refs = caption_data['ignore_refs']
+                cur_refs = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
+                cur_cand = caption_data['caption']
+                references.append(cur_refs)
+                candidates.append(cur_cand)
+                image_paths.append(image_data['file_path'])
+                image_ids.append(image_id)
+                caption_inds.append(caption_ind)
+
+        gen = {}
+        gts = {}
+
+        ims_cs = list()
+        gen_cs = list()
+        gts_cs = list()
+
+        for i, (im_i, gts_i, gen_i) in enumerate(zip(image_paths, references, candidates)):
+            gen['%d' % (i)] = [gen_i, ]
+            gts['%d' % (i)] = gts_i
+            ims_cs.append(im_i)
+            gen_cs.append(gen_i)
+            gts_cs.append(gts_i)
+
+        sys.path.append('pacscore')
+        import evaluation
+        gts = evaluation.PTBTokenizer.tokenize(gts)
+        gen = evaluation.PTBTokenizer.tokenize(gen)
+
+        from models.clip import clip
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model, preprocess = clip.load('ViT-B/32', device=device)
+        model = model.to(device)
+        model = model.float()
+        checkpoint = torch.load("checkpoints/clip_ViT-B-32.pth")
+        model.load_state_dict(checkpoint['state_dict'])
+        model.eval()
+
+        from evaluation import PACScore, RefPACScore
+        _, pac_scores, candidate_feats, len_candidates = PACScore(model, preprocess, ims_cs, gen_cs, device, w=2.0)
+        _, per_instance_text_text = RefPACScore(model, gts_cs, candidate_feats, device, torch.tensor(len_candidates))
+        refpac_scores = 2 * pac_scores * per_instance_text_text / (pac_scores + per_instance_text_text)
+
+        for image_id, caption_ind, pac_score, refpac_score in zip(image_ids, caption_inds, pac_scores, refpac_scores):
+            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic']['PAC'] = pac_score
+            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic']['RefPAC'] = refpac_score
 
     def get_all_metrics(self):
         all_metrics = list(set([x for dataset_data in self.data.values() for image_data in dataset_data.values() for caption_data in image_data['captions'] for x in caption_data['automatic_metrics'].keys()]))
