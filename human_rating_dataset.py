@@ -315,16 +315,12 @@ class HumanRatingDataset:
                 self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['WMD'] = similarity
     
     def compute_nubia(self, dataset_name, agg_method):
-        nubia = Nubia()
-        for image_id, image_data in self.data[dataset_name].items():
-            for caption_ind, caption_data in enumerate(image_data['captions']):
-                ignore_refs = []
-                if 'ignore_refs' in caption_data:
-                    ignore_refs = caption_data['ignore_refs']
-                references = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
-                candidate = caption_data['caption']
-
-                scores = [nubia.score(x, candidate) for x in references]
+        generated_scores_file_name = f'{dataset_name}_nubia_scores.pkl'
+        assert os.path.isfile(generated_scores_file_name)
+        with open(generated_scores_file_name, 'rb') as fp:
+            data = pickle.load(fp)
+        for image_id, image_scores in data.items():
+            for caption_ind, scores in enumerate(image_scores):
                 if agg_method == 'mean':
                     score = statistics.mean(scores)
                 elif agg_method == 'max':
