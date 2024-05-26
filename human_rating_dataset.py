@@ -327,6 +327,56 @@ class HumanRatingDataset:
                     score = max(scores)
                 self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['nubia'] = score
 
+    def compute_umic(self, dataset_name):
+        # The umic metrics require a mapping from image id to candidate. Since we have multiple candidates per image, we need to run it multiple times
+        N = self.get_candidate_num_per_image(dataset_name)
+        for caption_ind in range(N):
+            # First, create a temporary json file with image file names and caption, to be used by umic
+            temp_cands_file_name = f'temp_cands_{dataset_name}.json'
+            temp_res_file = f'temp_umic.json'
+            temp_txt_db_dir = f'temp_txt_db'
+
+            candidates = []
+            for image_data in self.data[dataset_name].values():
+                caption_data = image_data['captions'][caption_ind]
+                cur_candidate = caption_data['caption']
+                file_name = image_data['file_path'].split('/')[-1].split('.')[0]
+                candidates.append({'caption': cur_candidate, 'imgid': file_name})
+
+            with open(temp_cands_file_name, 'w') as fp:
+                fp.write(json.dumps(candidates))
+
+            if dataset_name.startswith('flickr'):
+                img_type = dataset_name
+            elif dataset_name.startswith('coco'):
+                img_type = 'coco_val2014'
+            else:
+                assert False
+            _ = subprocess.call(['UMIC/venv/bin/python', 'UMIC/make_txt_db.py',
+                                 '--input_file', temp_cands_file_name,
+                                 '--img_type', img_type,
+                                 '--out_dir', temp_txt_db_dir])
+            
+            _ = subprocess.call(['UMIC/venv/bin/python', 'UMIC/compute_metric.py',
+                                 '--img_db', img_type,
+                                 '--txt_db', temp_txt_db_dir,
+                                 '--out_file', temp_res_file])
+            
+            # Log results
+            with open(temp_res_file, 'r') as fp:
+                results = json.load(fp)
+
+            file_name2iid = self.get_file_name2iid_func(dataset_name)
+            for file_name, score_dict in results.items():
+                image_id = file_name2iid(file_name)
+                for metric, score in score_dict.items():
+                    self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics'][metric] = score
+
+            # Now, delete the temporary files
+            os.remove(temp_cands_file_name)
+            os.remove(temp_res_file)
+            shutil.rmtree(temp_txt_db_dir)
+    
     def compute_nneval(self, dataset_name):
         # Some metrics are not compatabile with large image ids; map to small ones
         new_to_orig_image_id = list(self.data[dataset_name].keys())
