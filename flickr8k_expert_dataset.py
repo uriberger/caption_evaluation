@@ -4,11 +4,14 @@ import os
 
 flickr8k_dir = 'flickr8k_data'
 class Flickr8kExpertDataset(HumanRatingDataset):
+    def name(self):
+        return 'flickr8k_expert'
+
     def collect_data(self):
         iid2captions = defaultdict(list)
         with open(f'{flickr8k_dir}/Flickr8k.token.txt', 'r') as fp:
             for line in fp:
-                line_parts = line.strip.split('\t')
+                line_parts = line.strip().split('\t')
                 assert len(line_parts) == 2
                 image_id = int(line_parts[0].split('_')[0])
                 caption = line_parts[1]
@@ -17,7 +20,7 @@ class Flickr8kExpertDataset(HumanRatingDataset):
         data = {}
         with open(f'{flickr8k_dir}/ExpertAnnotations.txt', 'r') as fp:
             for line in fp:
-                line_parts = line.strip.split('\t')
+                line_parts = line.strip().split('\t')
                 image_id = int(line_parts[0].split('_')[0])
                 if image_id not in data:
                     file_path = f'/cs/labs/oabend/uriber/datasets/flickr30/images/{image_id}.jpg'

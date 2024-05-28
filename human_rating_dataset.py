@@ -31,17 +31,20 @@ import statistics
 import gensim
 import tensorflow as tf
 
-dump_file = 'dataset.pkl'
-
 class HumanRatingDataset:
     def __init__(self):
         self.data = {}
 
+    def name(self):
+        return ''
+
     def dump(self):
+        dump_file = f'{self.name()}_data.pkl'
         with open(dump_file, 'wb') as fp:
             pickle.dump(self.data, fp)
 
     def load(self):
+        dump_file = f'{self.name()}_data.pkl'
         with open(dump_file, 'rb') as fp:
             self.data = pickle.load(fp)
     
