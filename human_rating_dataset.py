@@ -33,6 +33,7 @@ import tensorflow as tf
 from flair.data import Sentence
 from flair.models import SequenceTagger
 from tqdm import tqdm
+import re
 
 tagger = SequenceTagger.load("flair/pos-english")
 class_to_pos_tag = [
@@ -604,8 +605,8 @@ class HumanRatingDataset:
                 id_str = tokenizer.decode(text_id)
                 if id_str.startswith('##'):
                     continue
-                if id_str == "'" and i < len(cur_input_ids) - 1 and tokenizer.decode(cur_input_ids) == 's':
-                    continue
+                # if id_str == "'" and i < len(cur_input_ids) - 1 and tokenizer.decode(cur_input_ids) == 's':
+                #     continue
                 if i < len(cur_input_ids) - 1 and tokenizer.decode(cur_input_ids[i+1]) == '-':
                     continue
                 if id_str == '-':
@@ -646,8 +647,33 @@ class HumanRatingDataset:
 
         return res
     
+    def preprocess_sentences(self, sentences):
+        for cur_char, find_str in {'.': '\.', '\'s': '\'s'}.items():
+            new_sentences = []
+            for x in sentences:
+                char_inds = [m.start() for m in re.finditer(find_str, x)]
+                if len(char_inds) == 0:
+                    new_sentences.append(x)
+                    continue
+                prev_loc = 0
+                new_sent = ''
+                for ind in char_inds:
+                    new_sent += x[prev_loc:ind]
+                    if ind > 0 and x[ind-1] != ' ':
+                        new_sent += ' '
+                    new_sent += cur_char
+                    if ind < len(x) - len(cur_char) and x[ind+len(cur_char)] != ' ':
+                        new_sent += ' '
+                    prev_loc = ind + len(cur_char)
+                if len(x) > char_inds[-1] + len(cur_char):
+                    new_sent += x[char_inds[-1]+len(cur_char):]
+                new_sentences.append(new_sent)
+            sentences = new_sentences
+        return new_sentences
+    
     def collect_embeddings_and_pos_data(self, sentences):
-        all_pos_data = self.generate_pos_data(sentences)
+        preprocessed_sentences = self.preprocess_sentences(sentences)
+        all_pos_data = self.generate_pos_data(preprocessed_sentences)
         all_features = self.generate_features(sentences)
         assert len(sentences) == len(all_pos_data)
         assert len(all_features) == len(all_pos_data)
