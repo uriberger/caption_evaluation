@@ -588,7 +588,7 @@ class HumanRatingDataset:
     def extract_features_from_sentences(self, sentences, model, tokenizer, agg_subtokens_method):
         with torch.no_grad():
             tokenized_input = tokenizer(sentences, padding=True, return_tensors='pt').to(torch.device('cuda'))
-            res = model.infer(**tokenized_input)
+            res = model(**tokenized_input)
 
         text_feats = res['last_hidden_state']
         feature_list = []
@@ -668,7 +668,7 @@ class HumanRatingDataset:
         score = found_in_ref_count_num/ref_word_num
         return score
     
-    def compute_fuzzy_overlap_metric(self, dataset_name):
+    def compute_fuzzy_overlap_metrics(self, dataset_name):
         # Collect references and candidates
         candidates = []
         references = []
