@@ -20,6 +20,7 @@ import pathlib
 import pickle
 import math
 import torch
+import torch.nn as nn
 from SMURF.smurf.eval import smurf_eval_captions
 import gensim.downloader as api
 from nltk.corpus import stopwords
@@ -34,6 +35,7 @@ from flair.data import Sentence
 from flair.models import SequenceTagger
 from tqdm import tqdm
 import re
+from sentence_transformers import SentenceTransformer
 
 tagger = SequenceTagger.load("flair/pos-english")
 class_to_pos_tag = [
@@ -771,8 +773,6 @@ class HumanRatingDataset:
 
     def compute_clip_image_score(self, dataset_name):
         from diffusers import AutoPipelineForText2Image
-        import torch
-        import torch.nn as nn
         import clip
         from PIL import Image
 
@@ -797,6 +797,28 @@ class HumanRatingDataset:
                     reconstructed_image_features = clip_model.encode_image(reconstructed_image)
                     score = cos_sim(orig_image_features, reconstructed_image_features).item()
                     self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['CLIPImageScore'] = score
+
+    def compute_mpnet_score(self, dataset_name, agg_method='mean'):
+        model = SentenceTransformer('all-mpnet-base-v2')
+        model.eval()
+        cos_sim = nn.CosineSimilarity()
+
+        for image_id, image_data in self.data[dataset_name].items():
+            for caption_ind, caption_data in enumerate(image_data['captions']):
+                ignore_refs = []
+                if 'ignore_refs' in caption_data:
+                    ignore_refs = caption_data['ignore_refs']
+                candidate = caption_data['caption']
+                references = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
+                with torch.no_grad():
+                    cand_embedding = model.encode(candidate)
+                    ref_embeddings = [model.encode(ref) for ref in references]
+                scores = [cos_sim(cand_embedding, ref_embedding).item() for ref_embedding in ref_embeddings]
+                if agg_method == 'mean':
+                    score = statistics.mean(scores)
+                elif agg_method == 'max':
+                    score = max(scores)
+                self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['MPNet'] = score
 
     def get_all_metrics(self):
         all_metrics = list(set([x for dataset_data in self.data.values() for image_data in dataset_data.values() for caption_data in image_data['captions'] for x in caption_data['automatic_metrics'].keys()]))
