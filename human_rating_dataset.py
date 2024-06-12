@@ -798,10 +798,12 @@ class HumanRatingDataset:
                     score = cos_sim(orig_image_features, reconstructed_image_features).item()
                     self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['CLIPImageScore'] = score
 
+    def numpy_cosine_similarity(self, a, b):
+        return np.dot(a, b)/(np.linalg.norm(a)*np.linalg.norm(b))
+    
     def compute_mpnet_score(self, dataset_name, agg_method='mean'):
         model = SentenceTransformer('all-mpnet-base-v2')
         model.eval()
-        cos_sim = nn.CosineSimilarity()
 
         for image_id, image_data in self.data[dataset_name].items():
             for caption_ind, caption_data in enumerate(image_data['captions']):
@@ -813,7 +815,7 @@ class HumanRatingDataset:
                 with torch.no_grad():
                     cand_embedding = model.encode(candidate)
                     ref_embeddings = [model.encode(ref) for ref in references]
-                scores = [cos_sim(cand_embedding, ref_embedding).item() for ref_embedding in ref_embeddings]
+                scores = [self.numpy_cosine_similarity(cand_embedding, ref_embedding).item() for ref_embedding in ref_embeddings]
                 if agg_method == 'mean':
                     score = statistics.mean(scores)
                 elif agg_method == 'max':
