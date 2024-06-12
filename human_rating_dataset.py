@@ -686,12 +686,17 @@ class HumanRatingDataset:
         return res
     
     def fuzzy_overlap(self, cand_data, refs_data, pos, phi=0.1):
-        class_ind = pos_tag_to_class[pos]
+        if pos == 'NOUN':
+            class_ind = 0
+        elif pos == 'VERB':
+            class_ind = 1
+        else:
+            assert False, f'Unsupported part-of-speech for fuzzy overlap: {pos}'
         ref_embeddings = [x[0] for outer in refs_data for x in outer if x[1] == class_ind]
         ref_word_num = len(ref_embeddings)
         cand_embeddings = [x[0] for x in cand_data if x[1] == 0]
-        found_in_ref_count_num = len([x for x in cand_embeddings if len([y for y in ref_embeddings if np.linalg.norm(x-y) <= phi]) > 0])
-        score = found_in_ref_count_num/ref_word_num
+        found_in_ref_num = len([x for x in cand_embeddings if len([y for y in ref_embeddings if torch.linalg.vector_norm(x-y) <= phi]) > 0])
+        score = found_in_ref_num/ref_word_num
         return score
     
     def compute_fuzzy_overlap_metrics(self, dataset_name):
@@ -714,10 +719,22 @@ class HumanRatingDataset:
         refs_data = self.collect_embeddings_and_pos_data(all_refs)
 
         for sample_info, cur_cand, cur_refs in zip(image_id_caption_ind_pairs, candidates, references):
-            cur_cand_data = cands_data[cur_cand]
-            cur_refs_data = [refs_data[x] for x in cur_refs]
-            noun_score = self.fuzzy_overlap(cur_cand_data, cur_refs_data, 'NOUN')
-            verb_score = self.fuzzy_overlap(cur_cand_data, cur_refs_data, 'VERB')
+            while True:
+                if cur_cand not in cands_data:
+                    noun_score = 0
+                    verb_score = 0
+                    break
+                
+                cur_cand_data = cands_data[cur_cand]
+                cur_refs_data = [refs_data[x] for x in cur_refs if x in refs_data]
+                if len(cur_refs_data) == 0:
+                    noun_score = 0
+                    verb_score = 0
+                    break
+
+                noun_score = self.fuzzy_overlap(cur_cand_data, cur_refs_data, 'NOUN')
+                verb_score = self.fuzzy_overlap(cur_cand_data, cur_refs_data, 'VERB')
+                break
             image_id, caption_id = sample_info
             self.data[dataset_name][image_id]['captions'][caption_id]['automatic_metrics']['Fuzzy noun overlap'] = noun_score
             self.data[dataset_name][image_id]['captions'][caption_id]['automatic_metrics']['Fuzzy verb overlap'] = verb_score
