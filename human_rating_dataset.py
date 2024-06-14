@@ -1,15 +1,7 @@
-from pycocoevalcap.tokenizer.ptbtokenizer import PTBTokenizer
-from pycocoevalcap.bleu.bleu import Bleu
-from pycocoevalcap.meteor.meteor import Meteor
-from pycocoevalcap.rouge.rouge import Rouge
-from pycocoevalcap.cider.cider import Cider
-from pycocoevalcap.spice.spice import Spice
-from evaluate import load
 from collections import OrderedDict
 import scipy.stats as stats
 import numpy as np
 import matplotlib.pyplot as plt
-import nltk.translate.nist_score as nist_score
 import os
 import json
 import sys
@@ -21,23 +13,12 @@ import pickle
 import math
 import torch
 import torch.nn as nn
-from SMURF.smurf.eval import smurf_eval_captions
-import gensim.downloader as api
-from nltk.corpus import stopwords
-from nltk import download
-from nubia_score import Nubia
 from sklearn.feature_selection import SequentialFeatureSelector
 from sklearn.linear_model import LinearRegression
 import statistics
-import gensim
-import tensorflow as tf
-from flair.data import Sentence
-from flair.models import SequenceTagger
 from tqdm import tqdm
-import re
-from sentence_transformers import SentenceTransformer
+from PIL import Image
 
-tagger = SequenceTagger.load("flair/pos-english")
 class_to_pos_tag = [
     # Nouns:
     ['NN', 'NNS', 'NNP', 'WP', 'NNPS', 'WP$'],
@@ -90,6 +71,13 @@ class HumanRatingDataset:
         self.compute_content_overlap_metrics(dataset_name)
 
     def compute_coco_metrics(self, dataset_name):
+        from pycocoevalcap.tokenizer.ptbtokenizer import PTBTokenizer
+        from pycocoevalcap.bleu.bleu import Bleu
+        from pycocoevalcap.meteor.meteor import Meteor
+        from pycocoevalcap.rouge.rouge import Rouge
+        from pycocoevalcap.cider.cider import Cider
+        from pycocoevalcap.spice.spice import Spice
+
         # Some metrics are not compatabile with large image ids; map to small ones
         new_to_orig_image_id = list(self.data[dataset_name].keys())
         orig_to_new_image_id = {new_to_orig_image_id[i]: i for i in range(len(new_to_orig_image_id))}
@@ -167,6 +155,8 @@ class HumanRatingDataset:
                 self.data[dataset_name][orig_image_id]['captions'][caption_id]['automatic_metrics'][metric_name] = score
 
     def compute_huggingface_metrics(self, dataset_name):
+        from evaluate import load
+
         # Collect references and candidates
         references = []
         candidates = []
@@ -195,6 +185,8 @@ class HumanRatingDataset:
                 self.data[dataset_name][image_id]['captions'][caption_id]['automatic_metrics'][metric_name] = score
 
     def compute_sentence_level_nltk_metrics(self, dataset_name):
+        import nltk.translate.nist_score as nist_score
+
         # NIST
         for image_id, image_data in self.data[dataset_name].items():
             for caption_ind, caption_data in enumerate(image_data['captions']):
@@ -293,6 +285,8 @@ class HumanRatingDataset:
                 self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['TER'] = (-1)*ter.compute(predictions=[candidate], references=[references])['score']
 
     def compute_smurf(self, dataset_name):
+        from SMURF.smurf.eval import smurf_eval_captions
+
         image_id_caption_ind_pairs = []
         references = []
         candidates = []
@@ -316,6 +310,10 @@ class HumanRatingDataset:
             self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['SMURF'] = score
     
     def compute_wmd(self, dataset_name, agg_method='mean'):
+        import gensim.downloader as api
+        from nltk.corpus import stopwords
+        from nltk import download
+
         model = api.load('word2vec-google-news-300')
         _ = download('stopwords')
         stop_words = stopwords.words('english')
@@ -406,6 +404,11 @@ class HumanRatingDataset:
             shutil.rmtree(temp_txt_db_dir)
     
     def compute_nneval(self, dataset_name):
+        import gensim
+        import NNEval.configuration_nneval as configuration
+        from NNEval.nn_classify_model_nneval import build_model
+        import tensorflow as tf
+
         # Some metrics are not compatabile with large image ids; map to small ones
         new_to_orig_image_id = list(self.data[dataset_name].keys())
         orig_to_new_image_id = {new_to_orig_image_id[i]: i for i in range(len(new_to_orig_image_id))}
@@ -478,9 +481,7 @@ class HumanRatingDataset:
                             spice_scores[i],
                             cider_scores[i]/10]
             
-        import NNEval.configuration_nneval as configuration
         model_config = configuration.ModelConfig()
-        from NNEval.nn_classify_model_nneval import build_model
 
         def _step_test(sess, model, features):
             nn_score= sess.run([model['nn_score']],  feed_dict={model['sentence_features']: features})            
@@ -589,7 +590,6 @@ class HumanRatingDataset:
             self.data[dataset_name][image_id]['captions'][caption_id]['automatic_metrics']['Fuzzy verb overlap'] = cur_res['scores']['content_recall']['candidate_summary_verb_fuzzy_recall']
     
     def compute_polos(self, dataset_name):
-        from PIL import Image
         from polos.models import download_model, load_checkpoint
 
         polos_data = []
@@ -649,6 +649,8 @@ class HumanRatingDataset:
         return np.dot(a, b)/(np.linalg.norm(a)*np.linalg.norm(b))
     
     def compute_mpnet_score(self, dataset_name, agg_method='mean'):
+        from sentence_transformers import SentenceTransformer
+
         model = SentenceTransformer('all-mpnet-base-v2')
         model.eval()
 
@@ -668,6 +670,21 @@ class HumanRatingDataset:
                 elif agg_method == 'max':
                     score = max(scores)
                 self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['MPNet'] = score
+
+    def compute_blip2(self, dataset_name):
+        from lavis.models import load_model_and_preprocess
+
+        device = torch.device('cuda')
+        model, vis_processors, text_processors = load_model_and_preprocess("blip2_image_text_matching", "pretrain", device=device, is_eval=True)
+
+        for image_id, image_data in tqdm(self.data[dataset_name].items()):
+            raw_image = Image.open(image_data['file_path']).convert("RGB")
+            img = vis_processors["eval"](raw_image).unsqueeze(0).to(device)
+            for caption_ind, caption_data in enumerate(image_data['captions']):
+                caption = caption_data['caption']
+                txt = text_processors["eval"](caption)
+                score = model({"image": img, "text_input": txt}, match_head='itc')
+                self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['BLIP2Score'] = score
 
     def get_all_metrics(self):
         all_metrics = list(set([x for dataset_data in self.data.values() for image_data in dataset_data.values() for caption_data in image_data['captions'] for x in caption_data['automatic_metrics'].keys()]))
