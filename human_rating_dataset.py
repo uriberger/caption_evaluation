@@ -579,7 +579,7 @@ class HumanRatingDataset:
                 references = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
                 samples.append({'candidate_summary': candidate, 'refs': references})
 
-        res = compute_and_add_content_recall(samples)
+        res = compute_and_add_content_recall(samples, 'refs')
 
         for sample_info, cur_res in zip(image_id_caption_ind_pairs, res):
             image_id, caption_id = sample_info
