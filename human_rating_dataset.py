@@ -87,7 +87,7 @@ class HumanRatingDataset:
         self.compute_clipscore(dataset_name)
         self.compute_smurf(dataset_name)
         self.compute_wmd(dataset_name)
-        self.compute_fuzzy_overlap_metrics(dataset_name)
+        self.compute_content_overlap_metrics(dataset_name)
 
     def compute_coco_metrics(self, dataset_name):
         # Some metrics are not compatabile with large image ids; map to small ones
@@ -562,149 +562,12 @@ class HumanRatingDataset:
         for image_id, caption_ind, pac_score, refpac_score in zip(image_ids, caption_inds, pac_scores, refpac_scores):
             self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['PAC'] = pac_score
             self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['RefPAC'] = refpac_score
-
-    def generate_pos_data(self, sentences):
-        res = []
-        for caption in sentences:
-            sentence_obj = Sentence(caption)
-            tagger.predict(sentence_obj)
-            res.append([
-                {
-                    'text': token.text,
-                    'start_position': token.start_position,
-                    'label': pos_tag_to_class[token.annotation_layers['pos'][0]._value]
-                } for token in sentence_obj
-            ])
-
-        return res
-
-    def agg_vectors(self, vectors, method):
-        if method == 'mean':
-            return torch.mean(vectors, dim=0)
-        elif method == 'first':
-            return vectors[0]
-        elif method == 'last':
-            return vectors[-1]
-        else:
-            assert False, f'Unknown feature aggregation method: {method}'
-
-    def extract_features_from_sentences(self, sentences, model, tokenizer, agg_subtokens_method):
-        with torch.no_grad():
-            tokenized_input = tokenizer(sentences, padding=True, return_tensors='pt').to(torch.device('cuda'))
-            res = model(**tokenized_input)
-
-        text_feats = res['last_hidden_state']
-        feature_list = []
-        for sent_ind in range(len(sentences)):
-            cur_token_start_ind = None
-            feature_vectors = []
-            cur_input_ids = tokenized_input.input_ids[sent_ind]
-            for i, text_id in enumerate(cur_input_ids):
-                if text_id.item() == 101:
-                    continue
-                if text_id.item() == 102:
-                    break
-                id_str = tokenizer.decode(text_id)
-                if id_str.startswith('##'):
-                    continue
-                # if id_str == "'" and i < len(cur_input_ids) - 1 and tokenizer.decode(cur_input_ids) == 's':
-                #     continue
-                if i < len(cur_input_ids) - 1 and tokenizer.decode(cur_input_ids[i+1]) == '-':
-                    continue
-                if id_str == '-':
-                    continue
-                elif cur_token_start_ind is not None:
-                    feature_vector = self.agg_vectors(text_feats[sent_ind, cur_token_start_ind:i, :], agg_subtokens_method)
-                    feature_vectors.append(feature_vector)
-                cur_token_start_ind = i
-            feature_vector = self.agg_vectors(text_feats[sent_ind, cur_token_start_ind:i, :], agg_subtokens_method)
-            feature_vectors.append(feature_vector)
-
-            feature_vectors = [x.unsqueeze(dim=0) for x in feature_vectors]
-            feature_list.append(torch.cat(feature_vectors, dim=0))
-            
-        return feature_list
     
-    def generate_features(self, sentences):
-        from transformers import AutoModel, AutoTokenizer
+    def compute_content_overlap_metrics(self, dataset_name):
+        from content_score import compute_and_add_content_recall
 
-        res = []
-
-        print('Loading model...', flush=True)
-        model = AutoModel.from_pretrained('bert-large-uncased')
-        tokenizer = AutoTokenizer.from_pretrained('bert-large-uncased')
-        model.to(torch.device('cuda'))
-
-        # Batches
-        batch_size = 4
-        sample_num = len(sentences)
-        batch_num = math.ceil(sample_num/batch_size)
-
-        for batch_ind in tqdm(range(batch_num)):
-            batch_start = batch_ind * batch_size
-            batch_end = min((batch_ind + 1) * batch_size, sample_num)
-            batch = sentences[batch_start:batch_end]
-            res += self.extract_features_from_sentences(batch, model, tokenizer, agg_subtokens_method='mean')
-        print('Finished', flush=True)
-
-        return res
-    
-    def preprocess_sentences(self, sentences):
-        for cur_char, find_str in {'.': '\.', '\'s': '\'s'}.items():
-            new_sentences = []
-            for x in sentences:
-                char_inds = [m.start() for m in re.finditer(find_str, x)]
-                if len(char_inds) == 0:
-                    new_sentences.append(x)
-                    continue
-                prev_loc = 0
-                new_sent = ''
-                for ind in char_inds:
-                    new_sent += x[prev_loc:ind]
-                    if ind > 0 and x[ind-1] != ' ':
-                        new_sent += ' '
-                    new_sent += cur_char
-                    if ind < len(x) - len(cur_char) and x[ind+len(cur_char)] != ' ':
-                        new_sent += ' '
-                    prev_loc = ind + len(cur_char)
-                if len(x) > char_inds[-1] + len(cur_char):
-                    new_sent += x[char_inds[-1]+len(cur_char):]
-                new_sentences.append(new_sent)
-            sentences = new_sentences
-        return new_sentences
-    
-    def collect_embeddings_and_pos_data(self, sentences):
-        preprocessed_sentences = self.preprocess_sentences(sentences)
-        all_pos_data = self.generate_pos_data(preprocessed_sentences)
-        all_features = self.generate_features(sentences)
-        assert len(sentences) == len(all_pos_data)
-        assert len(all_features) == len(all_pos_data)
-        res = {}
-        for cand, feature_vectors, pos_data in zip(sentences, all_features, all_pos_data):
-            if feature_vectors is None or feature_vectors.shape[0] != len(pos_data):
-                continue
-            res[cand] = [(feature_vectors[i], pos_data[i]['label']) for i in range(len(pos_data))]
-
-        return res
-    
-    def fuzzy_overlap(self, cand_data, refs_data, pos, phi=0.1):
-        if pos == 'NOUN':
-            class_ind = 0
-        elif pos == 'VERB':
-            class_ind = 1
-        else:
-            assert False, f'Unsupported part-of-speech for fuzzy overlap: {pos}'
-        ref_embeddings = [x[0] for outer in refs_data for x in outer if x[1] == class_ind]
-        ref_word_num = len(ref_embeddings)
-        cand_embeddings = [x[0] for x in cand_data if x[1] == 0]
-        found_in_ref_num = len([x for x in cand_embeddings if len([y for y in ref_embeddings if torch.linalg.vector_norm(x-y) <= phi]) > 0])
-        score = found_in_ref_num/ref_word_num
-        return score
-    
-    def compute_fuzzy_overlap_metrics(self, dataset_name):
         # Collect references and candidates
-        candidates = []
-        references = []
+        samples = []
         image_id_caption_ind_pairs = []
         for image_id, image_data in self.data[dataset_name].items():
             for caption_ind, caption_data in enumerate(image_data['captions']):
@@ -712,34 +575,18 @@ class HumanRatingDataset:
                 ignore_refs = []
                 if 'ignore_refs' in caption_data:
                     ignore_refs = caption_data['ignore_refs']
-                candidates.append(caption_data['caption'])
-                references.append([image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs])
+                candidate = caption_data['caption']
+                references = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
+                samples.append({'candidate_summary': candidate, 'refs': references})
 
-        all_cands = list(set(candidates))
-        all_refs = list(set([x for outer in references for x in outer]))
-        cands_data = self.collect_embeddings_and_pos_data(all_cands)
-        refs_data = self.collect_embeddings_and_pos_data(all_refs)
+        res = compute_and_add_content_recall(samples)
 
-        for sample_info, cur_cand, cur_refs in zip(image_id_caption_ind_pairs, candidates, references):
-            while True:
-                if cur_cand not in cands_data:
-                    noun_score = 0
-                    verb_score = 0
-                    break
-                
-                cur_cand_data = cands_data[cur_cand]
-                cur_refs_data = [refs_data[x] for x in cur_refs if x in refs_data]
-                if len(cur_refs_data) == 0:
-                    noun_score = 0
-                    verb_score = 0
-                    break
-
-                noun_score = self.fuzzy_overlap(cur_cand_data, cur_refs_data, 'NOUN')
-                verb_score = self.fuzzy_overlap(cur_cand_data, cur_refs_data, 'VERB')
-                break
+        for sample_info, cur_res in zip(image_id_caption_ind_pairs, res):
             image_id, caption_id = sample_info
-            self.data[dataset_name][image_id]['captions'][caption_id]['automatic_metrics']['Fuzzy noun overlap'] = noun_score
-            self.data[dataset_name][image_id]['captions'][caption_id]['automatic_metrics']['Fuzzy verb overlap'] = verb_score
+            self.data[dataset_name][image_id]['captions'][caption_id]['automatic_metrics']['Exact noun overlap'] = cur_res['scores']['content_recall']['candidate_summary_noun_recall']
+            self.data[dataset_name][image_id]['captions'][caption_id]['automatic_metrics']['Fuzzy noun overlap'] = cur_res['scores']['content_recall']['candidate_summary_noun_fuzzy_recall']
+            self.data[dataset_name][image_id]['captions'][caption_id]['automatic_metrics']['Exact verb overlap'] = cur_res['scores']['content_recall']['candidate_summary_verb_recall']
+            self.data[dataset_name][image_id]['captions'][caption_id]['automatic_metrics']['Fuzzy verb overlap'] = cur_res['scores']['content_recall']['candidate_summary_verb_fuzzy_recall']
     
     def compute_polos(self, dataset_name):
         from PIL import Image
