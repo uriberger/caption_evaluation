@@ -3,3 +3,10 @@
 *.png
 clipscore
 SMURF
+NNEval
+UMIC
+ViLBERTScore
+caption-by-committee
+flickr8k_data
+mPLUG
+pacscore
