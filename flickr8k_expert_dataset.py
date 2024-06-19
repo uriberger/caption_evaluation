@@ -12,7 +12,7 @@ class Flickr8kDataset(HumanRatingDataset):
         return f'flickr8k_{self.name}'
     
     def get_candidate_num_per_image(self, dataset_name):
-        if self.name == 'ExpertAnnotations':
+        if self.name == 'expert':
             return 10
         else:
             return 120
