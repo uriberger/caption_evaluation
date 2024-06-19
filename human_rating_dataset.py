@@ -686,6 +686,96 @@ class HumanRatingDataset:
                 score = model({"image": img, "text_input": txt}, match_head='itc')
                 self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['BLIP2Score'] = score
 
+    def compute_retrieval_score(self, dataset_name):
+        system_num = self.get_candidate_num_per_image(dataset_name)
+        assert len([x for x in image_data.values() if len([]) != system_num]) == 0
+        import clip
+        from PIL import Image
+
+        device = torch.device('cuda')
+        clip_model, preprocess = clip.load("ViT-B/32", device=device)
+
+        image_embeds = {}
+        text_embeds = {}
+        data_back_ref = []
+
+        # Collect references and candidates
+        with torch.no_grad():
+            for image_id, image_data in tqdm(self.data[dataset_name].items()):
+                image = Image.open(image_data['file_path'])
+                image = preprocess(image).unsqueeze(0).to(device)
+                image_features = clip_model.encode_image(image)
+                image_embed_ind = len(image_embeds)
+                image_embeds[image_embed_ind] = (image_features, [])
+                for caption_ind, caption_data in enumerate(image_data['captions']):
+                    candidate = caption_data['caption']
+                    text = clip.tokenize(candidate).to(device)
+                    text_features = clip_model.encode_text(text)
+                    text_embed_ind = len(text_embeds)
+                    text_embeds[text_embed_ind] = (text_features, image_embed_ind)
+                    image_embeds[image_embed_ind][1].append(text_embed_ind)
+                    data_back_ref.append((image_id, caption_ind, image_embed_ind, text_embed_ind))
+
+        image_embeds_list = sorted(list(image_embeds.items()), key=lambda x:x[0])
+        image_embeds_only = [x[1][0] for x in image_embeds_list]
+        image_mat = torch.cat(image_embeds_only)
+        text_embeds_list = sorted(list(text_embeds.items()), key=lambda x:x[0])
+        text_embeds_only = [x[1][0] for x in text_embeds_list]
+        text_mat = torch.cat(text_embeds_only)
+        
+        sim_mat = image_mat.matmul(text_mat.transpose(1, 0))
+        image_sim_sorted = torch.sort(sim_mat, dim=1).values
+        text_sim_sorted = torch.sort(sim_mat, dim=0).values
+        system_to_correct = {i: {'image_r@1': 0, 'image_r@5': 0, 'text_r@10': 0, 'text_r@1': 0, 'text_r@5': 0, 'text_r@10': 0} for i in range(system_num)}
+        system_to_count = {i: {'image_r@1': 0, 'image_r@5': 0, 'text_r@10': 0, 'text_r@1': 0, 'text_r@5': 0, 'text_r@10': 0} for i in range(system_num)}
+        # Need to think how to implement this
+
+    def compute_mplug_score(self, dataset_name):
+        from mPLUG.models.model_retrieval_mplug import MPLUG
+        from mPLUG.models.tokenization_bert import BertTokenizer
+        import ruamel.yaml as yaml
+        from torchvision import transforms
+        import torch.nn.functional as F
+
+        device = torch.device('cuda')
+
+        # Config
+        config = yaml.load(open('mPLUG/configs/retrieval_flickr30k_mplug_large.yaml', 'r'), Loader=yaml.Loader)
+        config['text_encoder'] = 'bert-base-uncased'
+
+        # Tokenizer
+        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+
+        # Model
+        model = MPLUG(config=config, tokenizer=tokenizer)
+        model.eval()
+
+        # Preprocess images
+        normalize = transforms.Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711))
+        test_transform = transforms.Compose([
+            transforms.Resize((config['image_res'],config['image_res']), interpolation=Image.BICUBIC),
+            transforms.ToTensor(),
+            normalize,
+        ])
+
+        for image_id, image_data in tqdm(self.data[dataset_name].items()):
+            raw_image = Image.open(image_data['file_path']).convert("RGB")
+            image = test_transform(raw_image).to(device)
+            image_feat = model.visual_encoder.visual(image, skip_last_layer=True)
+            image_feat = model.visn_layer_norm(model.visn_fc(image_feat))
+            image_embed = model.vision_proj(image_feat[:, 0, :])
+            image_embed = F.normalize(image_embed, dim=-1)
+            for caption_ind, caption_data in enumerate(image_data['captions']):
+                caption = caption_data['caption']
+                text_input = tokenizer(caption, padding='max_length', truncation=True, max_length=30, return_tensors="pt").to(device)
+                text_output = model.text_encoder(text_input.input_ids, attention_mask=text_input.attention_mask)
+                text_feat = text_output.last_hidden_state
+                text_embed = F.normalize(model.text_proj(text_feat[:, 0, :]))
+                feat_score = image_feat.dot(text_feat)
+                embed_score = image_embed.dot(text_embed)
+                self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['mPLUGFeatScore'] = feat_score
+                self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['mPLUGEmbedScore'] = embed_score
+
     def get_all_metrics(self):
         all_metrics = list(set([x for dataset_data in self.data.values() for image_data in dataset_data.values() for caption_data in image_data['captions'] for x in caption_data['automatic_metrics'].keys()]))
         all_metrics = [x for x in all_metrics if not x.startswith('SPICE_')]
