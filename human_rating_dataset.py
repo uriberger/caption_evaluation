@@ -737,21 +737,72 @@ class HumanRatingDataset:
         sys.path.append('mPLUG')
         from mPLUG.models.model_retrieval_mplug import MPLUG
         from mPLUG.models.tokenization_bert import BertTokenizer
-        import ruamel.yaml as yaml
+        from ruamel.yaml import YAML
         from torchvision import transforms
         import torch.nn.functional as F
 
         device = torch.device('cuda')
 
         # Config
-        config = yaml.load(open('mPLUG/configs/retrieval_flickr30k_mplug_large.yaml', 'r'), Loader=yaml.Loader)
+        yaml = YAML(typ='rt')
+        config = yaml.load(open('mPLUG/configs/retrieval_flickr30k_mplug_large.yaml', 'r'))
         config['text_encoder'] = 'bert-base-uncased'
+        config['bert_config'] = 'mPLUG/configs/config_bert.json'
 
         # Tokenizer
         tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
         # Model
         model = MPLUG(config=config, tokenizer=tokenizer)
+        model.eval()
+
+        # Preprocess images
+        normalize = transforms.Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711))
+        test_transform = transforms.Compose([
+            transforms.Resize((config['image_res'],config['image_res']), interpolation=Image.BICUBIC),
+            transforms.ToTensor(),
+            normalize,
+        ])
+
+        with torch.no_grad():
+            for image_id, image_data in tqdm(self.data[dataset_name].items()):
+                raw_image = Image.open(image_data['file_path']).convert("RGB")
+                image = test_transform(raw_image).to(device)
+                image = image.unsqueeze(dim=0)
+                image_feat = model.visual_encoder.visual(image, skip_last_layer=True)
+                image_feat = model.visn_layer_norm(model.visn_fc(image_feat))
+                image_embed = model.vision_proj(image_feat[:, 0, :])[0]
+                image_embed = F.normalize(image_embed, dim=-1)
+                for caption_ind, caption_data in enumerate(image_data['captions']):
+                    caption = caption_data['caption']
+                    text_input = tokenizer(caption, padding='max_length', truncation=True, max_length=30, return_tensors="pt").to(device)
+                    text_output = model.text_encoder(text_input.input_ids, attention_mask=text_input.attention_mask)
+                    text_feat = text_output.last_hidden_state
+                    text_embed = F.normalize(model.text_proj(text_feat[:, 0, :]))[0]
+                    embed_score = image_embed.dot(text_embed)
+                    self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['mPLUGScore'] = embed_score
+
+    def compute_oscar_score(self, dataset_name):
+        sys.path.append('mPLUG')
+        from mPLUG.models.model_retrieval_mplug import MPLUG
+        from mPLUG.models.tokenization_bert import BertTokenizer
+        from ruamel.yaml import YAML
+        from torchvision import transforms
+        import torch.nn.functional as F
+
+        device = torch.device('cuda')
+
+        # Config
+        yaml = YAML(typ='rt')
+        config = yaml.load(open('mPLUG/configs/retrieval_flickr30k_mplug_large.yaml', 'r'))
+        config['text_encoder'] = 'bert-base-uncased'
+        config['bert_config'] = 'mPLUG/configs/config_bert.json'
+
+        # Tokenizer
+        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+
+        # Model
+        model = MPLUG(config=config, tokenizer=tokenizer).to(device)
         model.eval()
 
         # Preprocess images
