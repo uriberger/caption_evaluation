@@ -779,7 +779,7 @@ class HumanRatingDataset:
                     text_output = model.text_encoder(text_input.input_ids, attention_mask=text_input.attention_mask)
                     text_feat = text_output.last_hidden_state
                     text_embed = F.normalize(model.text_proj(text_feat[:, 0, :]))[0]
-                    embed_score = image_embed.dot(text_embed)
+                    embed_score = image_embed.dot(text_embed).item()
                     self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['mPLUGScore'] = embed_score
 
     def compute_oscar_score(self, dataset_name):
