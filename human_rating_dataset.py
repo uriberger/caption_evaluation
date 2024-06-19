@@ -734,6 +734,7 @@ class HumanRatingDataset:
         # Need to think how to implement this
 
     def compute_mplug_score(self, dataset_name):
+        sys.path.append('mPLUG')
         from mPLUG.models.model_retrieval_mplug import MPLUG
         from mPLUG.models.tokenization_bert import BertTokenizer
         import ruamel.yaml as yaml
@@ -764,20 +765,19 @@ class HumanRatingDataset:
         for image_id, image_data in tqdm(self.data[dataset_name].items()):
             raw_image = Image.open(image_data['file_path']).convert("RGB")
             image = test_transform(raw_image).to(device)
+            image = image.unsqueeze(dim=0)
             image_feat = model.visual_encoder.visual(image, skip_last_layer=True)
             image_feat = model.visn_layer_norm(model.visn_fc(image_feat))
-            image_embed = model.vision_proj(image_feat[:, 0, :])
+            image_embed = model.vision_proj(image_feat[:, 0, :])[0]
             image_embed = F.normalize(image_embed, dim=-1)
             for caption_ind, caption_data in enumerate(image_data['captions']):
                 caption = caption_data['caption']
                 text_input = tokenizer(caption, padding='max_length', truncation=True, max_length=30, return_tensors="pt").to(device)
                 text_output = model.text_encoder(text_input.input_ids, attention_mask=text_input.attention_mask)
                 text_feat = text_output.last_hidden_state
-                text_embed = F.normalize(model.text_proj(text_feat[:, 0, :]))
-                feat_score = image_feat.dot(text_feat)
+                text_embed = F.normalize(model.text_proj(text_feat[:, 0, :]))[0]
                 embed_score = image_embed.dot(text_embed)
-                self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['mPLUGFeatScore'] = feat_score
-                self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['mPLUGEmbedScore'] = embed_score
+                self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['mPLUGScore'] = embed_score
 
     def get_all_metrics(self):
         all_metrics = list(set([x for dataset_data in self.data.values() for image_data in dataset_data.values() for caption_data in image_data['captions'] for x in caption_data['automatic_metrics'].keys()]))
