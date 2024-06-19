@@ -3,9 +3,22 @@ from collections import defaultdict
 import os
 
 flickr8k_dir = 'flickr8k_data'
-class Flickr8kExpertDataset(HumanRatingDataset):
+class Flickr8kDataset(HumanRatingDataset):
+    def __init__(self, name):
+        super(Flickr8kDataset, self).__init__()
+        self.name = name
+
     def name(self):
-        return 'flickr8k_expert'
+        return f'flickr8k_{self.name}'
+    
+    def get_candidate_num_per_image(self, dataset_name):
+        if self.name == 'ExpertAnnotations':
+            return 10
+        else:
+            return 120
+        
+    def get_file_name2iid_func(self, dataset_name):
+        return lambda x: int(x)
 
     def collect_data(self):
         iid2captions = defaultdict(list)
@@ -18,7 +31,8 @@ class Flickr8kExpertDataset(HumanRatingDataset):
                 iid2captions[image_id].append(caption)
 
         data = {}
-        with open(f'{flickr8k_dir}/ExpertAnnotations.txt', 'r') as fp:
+        human_rating_file_name = 'ExpertAnnotations' if self.name == 'expert' else 'CrowdFlowerAnnotations'
+        with open(f'{flickr8k_dir}/{human_rating_file_name}.txt', 'r') as fp:
             for line in fp:
                 line_parts = line.strip().split('\t')
                 image_id = int(line_parts[0].split('_')[0])
