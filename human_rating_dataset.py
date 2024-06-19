@@ -737,9 +737,11 @@ class HumanRatingDataset:
         sys.path.append('mPLUG')
         from mPLUG.models.model_retrieval_mplug import MPLUG
         from mPLUG.models.tokenization_bert import BertTokenizer
+        from mPLUG.models.vit import resize_pos_embed
         from ruamel.yaml import YAML
         from torchvision import transforms
         import torch.nn.functional as F
+        import torch.nn as nn
 
         device = torch.device('cuda')
 
@@ -755,6 +757,25 @@ class HumanRatingDataset:
         # Model
         model = MPLUG(config=config, tokenizer=tokenizer).to(device)
         model.eval()
+
+        # Checkpoint
+        checkpoint = torch.load('../AliceMind/mPLUG/mplug_large.pth', map_location='cpu')
+        state_dict = checkpoint['model']
+        num_patches = int(config["image_res"] * config["image_res"] / (14 * 14))
+        pos_embed = nn.Parameter(torch.zeros(num_patches + 1, 768).float())
+        pos_embed = resize_pos_embed(state_dict['visual_encoder.visual.positional_embedding'].unsqueeze(0), pos_embed.unsqueeze(0))
+        state_dict['visual_encoder.visual.positional_embedding'] = pos_embed
+        pos_embed = nn.Parameter(torch.zeros(num_patches + 1, 768).float())
+        pos_embed = resize_pos_embed(state_dict['visual_encoder_m.visual.positional_embedding'].unsqueeze(0), pos_embed.unsqueeze(0))
+        state_dict['visual_encoder_m.visual.positional_embedding'] = pos_embed
+
+        for key in list(state_dict.keys()):
+            if ('fusion' in key or 'bert' in key) and 'decode' not in key:
+                encoder_key = key.replace('fusion.', '').replace('bert.', '')
+                state_dict[encoder_key] = state_dict[key]
+                del state_dict[key]
+
+        _ = model.load_state_dict(state_dict, strict=False)
 
         # Preprocess images
         normalize = transforms.Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711))
@@ -783,7 +804,7 @@ class HumanRatingDataset:
                     self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['mPLUGScore'] = embed_score
 
     def compute_oscar_score(self, dataset_name):
-        sys.path.append('mPLUG')
+        sys.path.append('Oscar')
         from mPLUG.models.model_retrieval_mplug import MPLUG
         from mPLUG.models.tokenization_bert import BertTokenizer
         from ruamel.yaml import YAML
