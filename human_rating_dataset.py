@@ -753,7 +753,7 @@ class HumanRatingDataset:
         tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
         # Model
-        model = MPLUG(config=config, tokenizer=tokenizer)
+        model = MPLUG(config=config, tokenizer=tokenizer).to(device)
         model.eval()
 
         # Preprocess images
