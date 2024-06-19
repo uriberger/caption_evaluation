@@ -680,13 +680,14 @@ class HumanRatingDataset:
         model, vis_processors, text_processors = load_model_and_preprocess("blip2_image_text_matching", "pretrain", device=device, is_eval=True)
 
         for image_id, image_data in tqdm(self.data[dataset_name].items()):
-            raw_image = Image.open(image_data['file_path']).convert("RGB")
-            img = vis_processors["eval"](raw_image).unsqueeze(0).to(device)
-            for caption_ind, caption_data in enumerate(image_data['captions']):
-                caption = caption_data['caption']
-                txt = text_processors["eval"](caption)
-                score = model({"image": img, "text_input": txt}, match_head='itc')
-                self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['BLIP2Score'] = score
+            with torch.no_grad():
+                raw_image = Image.open(image_data['file_path']).convert("RGB")
+                img = vis_processors["eval"](raw_image).unsqueeze(0).to(device)
+                for caption_ind, caption_data in enumerate(image_data['captions']):
+                    caption = caption_data['caption']
+                    txt = text_processors["eval"](caption)
+                    score = model({"image": img, "text_input": txt}, match_head='itc')
+                    self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['BLIP2Score'] = score.item()
 
     def compute_retrieval_score(self, dataset_name):
         system_num = self.get_candidate_num_per_image(dataset_name)
