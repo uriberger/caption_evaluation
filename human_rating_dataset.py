@@ -217,7 +217,7 @@ class HumanRatingDataset:
             candidates = {}
             image_dir = None
             for image_data in self.data[dataset_name].values():
-                if caption_ind not in image_data['captions']:
+                if caption_ind >= len(image_data['captions']):
                     continue
                 caption_data = image_data['captions'][caption_ind]
                 ignore_refs = []
