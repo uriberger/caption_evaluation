@@ -2,10 +2,6 @@ from human_rating_dataset import HumanRatingDataset
 import json
 
 class ThumbDataset(HumanRatingDataset):
-    def __init__(self, name):
-        super(ThumbDataset, self).__init__()
-        self.name = name
-
     def get_name(self):
         return 'thumb'
     
