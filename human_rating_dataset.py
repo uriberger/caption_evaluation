@@ -838,7 +838,7 @@ class HumanRatingDataset:
             cur_metric_score_list = [metric_to_score_list[metric][i] for i in range(len(metric_to_score_list[metric])) if i not in metric_to_missing_inds[metric]]
             metric_to_corr[metric] = stats.pearsonr(cur_human_rating_list, cur_metric_score_list)
 
-        res = [(metric, metric_to_corr[metric].statistic) for metric in all_metrics]
+        res = [(metric, float(metric_to_corr[metric].statistic)) for metric in all_metrics]
         res.sort(key=lambda x:x[1], reverse=True)
         return res
     
