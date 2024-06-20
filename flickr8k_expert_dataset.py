@@ -8,7 +8,7 @@ class Flickr8kDataset(HumanRatingDataset):
         super(Flickr8kDataset, self).__init__()
         self.name = name
 
-    def name(self):
+    def get_name(self):
         return f'flickr8k_{self.name}'
     
     def get_candidate_num_per_image(self, dataset_name):

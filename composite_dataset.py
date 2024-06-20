@@ -29,7 +29,7 @@ dataset_to_file_name = {'flickr8k': '8k', 'flickr30k': '30k', 'coco': 'coco'}
 human_rating_dir = '/cs/labs/oabend/uriber/datasets/AMT_eval'
 
 class CompositeDataset(HumanRatingDataset):
-    def name(self):
+    def get_name(self):
         return 'composite'
 
     def get_candidate_num_per_image(self, dataset_name):
