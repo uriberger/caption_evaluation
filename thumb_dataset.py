@@ -1,7 +1,7 @@
-from human_rating_dataset import HumanRatingDataset
+from image_path_rating_dataset import ImagePathRatingDataset
 import json
 
-class ThumbDataset(HumanRatingDataset):
+class ThumbDataset(ImagePathRatingDataset):
     def get_name(self):
         return 'thumb'
         

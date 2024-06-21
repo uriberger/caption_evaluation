@@ -1,9 +1,9 @@
-from human_rating_dataset import HumanRatingDataset
+from image_path_rating_dataset import ImagePathRatingDataset
 from collections import defaultdict
 import os
 
 flickr8k_dir = 'flickr8k_data'
-class Flickr8kDataset(HumanRatingDataset):
+class Flickr8kDataset(ImagePathRatingDataset):
     def __init__(self, name):
         super(Flickr8kDataset, self).__init__()
         self.name = name

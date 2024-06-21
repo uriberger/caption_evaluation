@@ -1,4 +1,4 @@
-from human_rating_dataset import HumanRatingDataset
+from image_path_rating_dataset import ImagePathRatingDataset
 import os
 import csv
 import json
@@ -28,7 +28,7 @@ dataset2caption_num = {
 dataset_to_file_name = {'flickr8k': '8k', 'flickr30k': '30k', 'coco': 'coco'}
 human_rating_dir = '/cs/labs/oabend/uriber/datasets/AMT_eval'
 
-class CompositeDataset(HumanRatingDataset):
+class CompositeDataset(ImagePathRatingDataset):
     def get_name(self):
         return 'composite'
     

@@ -1,4 +1,4 @@
-from human_rating_dataset import HumanRatingDataset
+from image_path_rating_dataset import ImagePathRatingDataset
 import json
 
 file_name2iid = {
@@ -6,7 +6,7 @@ file_name2iid = {
     'coco': lambda x: int(x.split('_')[-1])
 }
 
-class ReformulationsDataset(HumanRatingDataset):
+class ReformulationsDataset(ImagePathRatingDataset):
     def get_name(self):
         return 'reformulations'
         

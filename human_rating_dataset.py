@@ -55,6 +55,15 @@ class HumanRatingDataset:
     
     def collect_data(self):
         return
+    
+    def get_image(self, dataset_name, image_data):
+        return
+    
+    def get_file_path(self, dataset_name, image_data):
+        return
+    
+    def clean_temp_files(self):
+        return
 
     def compute_metrics(self):
         for dataset in self.data.keys():
@@ -225,10 +234,11 @@ class HumanRatingDataset:
                     ignore_refs = caption_data['ignore_refs']
                 cur_references = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
                 cur_candidate = caption_data['caption']
-                file_name = image_data['file_path'].split('/')[-1].split('.')[0]
+                file_path = self.get_file_path(dataset_name, image_data)
+                file_name = file_path.split('/')[-1].split('.')[0]
+                cur_image_dir = '/'.join(file_path.split('/')[:-1])
                 references[file_name] = cur_references
                 candidates[file_name] = cur_candidate
-                cur_image_dir = '/'.join(image_data['file_path'].split('/')[:-1])
                 if image_dir is None:
                     image_dir = cur_image_dir
                 else:
@@ -273,6 +283,7 @@ class HumanRatingDataset:
             os.remove(temp_res_file)
             if temp_image_dir is not None:
                 shutil.rmtree(temp_image_dir)
+            self.clean_temp_files()
     
     def compute_sentence_level_huggingface_metrics(self, dataset_name):
         ter = load('ter')
@@ -368,7 +379,8 @@ class HumanRatingDataset:
             for image_data in self.data[dataset_name].values():
                 caption_data = image_data['captions'][caption_ind]
                 cur_candidate = caption_data['caption']
-                file_name = image_data['file_path'].split('/')[-1].split('.')[0]
+                file_path = self.get_file_path(dataset_name, image_data)
+                file_name = file_path.split('/')[-1].split('.')[0]
                 candidates.append({'caption': cur_candidate, 'imgid': file_name})
 
             with open(temp_cands_file_name, 'w') as fp:
@@ -404,6 +416,7 @@ class HumanRatingDataset:
             os.remove(temp_cands_file_name)
             os.remove(temp_res_file)
             shutil.rmtree(temp_txt_db_dir)
+            self.clean_temp_files()
     
     def compute_nneval(self, dataset_name):
         import gensim
@@ -525,7 +538,8 @@ class HumanRatingDataset:
                 cur_cand = caption_data['caption']
                 references.append(cur_refs)
                 candidates.append(cur_cand)
-                image_paths.append(image_data['file_path'])
+                file_path = self.get_file_path(dataset_name, image_data)
+                image_paths.append(file_path)
                 image_ids.append(image_id)
                 caption_inds.append(caption_ind)
 
@@ -565,6 +579,8 @@ class HumanRatingDataset:
         for image_id, caption_ind, pac_score, refpac_score in zip(image_ids, caption_inds, pac_scores, refpac_scores):
             self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['PAC'] = pac_score
             self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['RefPAC'] = refpac_score
+
+        self.clean_temp_files()
     
     def compute_content_overlap_metrics(self, dataset_name):
         from content_score import compute_and_add_content_recall
@@ -603,7 +619,7 @@ class HumanRatingDataset:
                 if 'ignore_refs' in caption_data:
                     ignore_refs = caption_data['ignore_refs']
                 polos_data.append({
-                    'img': Image.open(image_data['file_path']).convert("RGB"),
+                    'img': self.get_image(image_data),
                     'mt': caption_data['caption'],
                     'refs': [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
                     })
@@ -636,7 +652,7 @@ class HumanRatingDataset:
         # Collect references and candidates
         with torch.no_grad():
             for image_id, image_data in tqdm(self.data[dataset_name].items()):
-                orig_image = Image.open(image_data['file_path'])
+                orig_image = self.get_image(image_data)
                 orig_image = preprocess(orig_image).unsqueeze(0).to(device)
                 orig_image_features = clip_model.encode_image(orig_image)
                 for caption_ind, caption_data in enumerate(image_data['captions']):
@@ -681,7 +697,7 @@ class HumanRatingDataset:
 
         for image_id, image_data in tqdm(self.data[dataset_name].items()):
             with torch.no_grad():
-                raw_image = Image.open(image_data['file_path']).convert("RGB")
+                raw_image = self.get_image(image_data)
                 img = vis_processors["eval"](raw_image).unsqueeze(0).to(device)
                 for caption_ind, caption_data in enumerate(image_data['captions']):
                     caption = caption_data['caption']
@@ -705,7 +721,7 @@ class HumanRatingDataset:
         # Collect references and candidates
         with torch.no_grad():
             for image_id, image_data in tqdm(self.data[dataset_name].items()):
-                image = Image.open(image_data['file_path'])
+                image = self.get_image(image_data)
                 image = preprocess(image).unsqueeze(0).to(device)
                 image_features = clip_model.encode_image(image)
                 image_embed_ind = len(image_embeds)
@@ -787,7 +803,7 @@ class HumanRatingDataset:
 
         with torch.no_grad():
             for image_id, image_data in tqdm(self.data[dataset_name].items()):
-                raw_image = Image.open(image_data['file_path']).convert("RGB")
+                raw_image = self.get_image(image_data)
                 image = test_transform(raw_image).to(device)
                 image = image.unsqueeze(dim=0)
                 image_feat = model.visual_encoder.visual(image, skip_last_layer=True)
