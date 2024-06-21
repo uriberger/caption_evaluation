@@ -877,7 +877,7 @@ class HumanRatingDataset:
             my_writer.writerow(['metric'] + corr_types)
             metric_corrs_list = sorted(list(metric_to_corrs.items()), key=lambda x:x[1]['pearson'])
             for metric, corr_values in metric_corrs_list:
-                my_writer.writerow([metric] + [corr_values[x] for x in corr_types])
+                my_writer.writerow([metric] + ['%.1f' % corr_values[x] for x in corr_types])
 
         return corr_type_to_res
     
