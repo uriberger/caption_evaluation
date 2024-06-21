@@ -11,6 +11,22 @@ class PolarisDataset(HumanRatingDataset):
         super(PolarisDataset, self).__init__()
         self.hash2image_obj = None
 
+    def collect_data(self):
+        dataset = load_dataset('yuwd/Polaris')
+        data = {}
+        for key, value in dataset.items():
+            data[key] = {}
+            for sample in tqdm(value, desc=f'Collecting {key} data'):
+                image_id = self.hash_func(sample['refs'])
+                if image_id not in data[key]:
+                    data[key][image_id] = {
+                        'references': sample['refs'],
+                        'captions': []
+                    }
+                data[key][image_id]['captions'].append({'caption': sample['cand'], 'human_rating': sample['human_score'], 'automatic_metrics': {}})
+
+        self.data = data
+    
     def init_hash2image_obj(self):
         dataset = load_dataset('yuwd/Polaris')
         self.hash2image_obj = {}
