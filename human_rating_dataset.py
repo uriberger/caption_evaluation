@@ -18,6 +18,7 @@ from sklearn.linear_model import LinearRegression
 import statistics
 from tqdm import tqdm
 from PIL import Image
+import csv
 
 class_to_pos_tag = [
     # Nouns:
@@ -856,16 +857,28 @@ class HumanRatingDataset:
         
         corr_type_to_func = {'pearson': stats.pearsonr, 'spearman': stats.spearmanr, 'kendall_b': stats.kendalltau, 'kendall_c': lambda x,y: stats.kendalltau(x, y, variant='c')}
         corr_type_to_res = {}
+        metric_to_corrs = {metric: {} for metric in all_metrics}
         for corr_type, corr_func in corr_type_to_func.items():
             metric_to_corr = {}
             for metric in all_metrics:
                 cur_human_rating_list = [human_rating_list[i] for i in range(len(human_rating_list)) if i not in metric_to_missing_inds[metric]]
                 cur_metric_score_list = [metric_to_score_list[metric][i] for i in range(len(metric_to_score_list[metric])) if i not in metric_to_missing_inds[metric]]
-                metric_to_corr[metric] = corr_func(cur_human_rating_list, cur_metric_score_list)
+                cur_corr = float(corr_func(cur_human_rating_list, cur_metric_score_list).statistic)
+                metric_to_corr[metric] = cur_corr
+                metric_to_corrs[metric][corr_type] = cur_corr
 
-            res = [(metric, float(metric_to_corr[metric].statistic)) for metric in all_metrics]
+            res = [(metric, metric_to_corr[metric]) for metric in all_metrics]
             res.sort(key=lambda x:x[1], reverse=True)
             corr_type_to_res[corr_type] = res
+
+        with open('corr_with_human_ratings.csv', 'w') as fp:
+            my_writer = csv.writer(fp)
+            corr_types = ['pearson', 'spearman', 'kendall_b', 'kendall_c']
+            my_writer.writerow(['metric'] + corr_types)
+            metric_corrs_list = sorted(list(metric_to_corrs.items()), key=lambda x:x[1]['pearson'])
+            for metric, corr_values in metric_corrs_list:
+                my_writer.writerow([metric] + [corr_values[x] for x in corr_types])
+
         return corr_type_to_res
     
     def compute_mutual_correlation(self, metric_to_score_list, metric_to_missing_inds):
