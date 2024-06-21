@@ -198,7 +198,7 @@ class HumanRatingDataset:
                 self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['NIST'] = nist_score.sentence_nist(hypothesis=candidate, references = references)
     
     def get_candidate_num_per_image(self, dataset_name):
-        return
+        return max([len(image_data['captions']) for image_data in self.data[dataset_name].values()])
     
     def get_file_name2iid_func(self, dataset_name):
         return

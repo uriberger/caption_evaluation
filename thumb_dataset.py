@@ -4,9 +4,6 @@ import json
 class ThumbDataset(HumanRatingDataset):
     def get_name(self):
         return 'thumb'
-    
-    def get_candidate_num_per_image(self, dataset_name):
-        return 5
         
     def get_file_name2iid_func(self, dataset_name):
         return lambda x: int(x.split('_')[-1])

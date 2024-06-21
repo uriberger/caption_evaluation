@@ -31,9 +31,6 @@ human_rating_dir = '/cs/labs/oabend/uriber/datasets/AMT_eval'
 class CompositeDataset(HumanRatingDataset):
     def get_name(self):
         return 'composite'
-
-    def get_candidate_num_per_image(self, dataset_name):
-        return dataset2caption_num[dataset_name]
     
     def get_file_name2iid_func(self, dataset_name):
         return file_name2iid[dataset_name]
