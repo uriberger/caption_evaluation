@@ -621,7 +621,7 @@ class HumanRatingDataset:
                 if 'ignore_refs' in caption_data:
                     ignore_refs = caption_data['ignore_refs']
                 polos_data.append({
-                    'img': self.get_image(image_data),
+                    'img': self.get_image(dataset_name, image_data),
                     'mt': caption_data['caption'],
                     'refs': [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
                     })
@@ -652,7 +652,7 @@ class HumanRatingDataset:
         cos_sim = nn.CosineSimilarity()
 
         # Collect references and candidates
-        temp_file = 'tmp.pkl'
+        temp_file = f'{self.get_name()}_{dataset_name}_tmp.pkl'
         count = 0
         with torch.no_grad():
             for image_id, image_data in tqdm(self.data[dataset_name].items()):
@@ -660,7 +660,7 @@ class HumanRatingDataset:
                     with open(temp_file, 'wb') as fp:
                         pickle.dump(self.data, fp)
                 count += 1
-                orig_image = self.get_image(image_data)
+                orig_image = self.get_image(dataset_name, image_data)
                 orig_image = preprocess(orig_image).unsqueeze(0).to(device)
                 orig_image_features = clip_model.encode_image(orig_image)
                 for caption_ind, caption_data in enumerate(image_data['captions']):
@@ -705,7 +705,7 @@ class HumanRatingDataset:
 
         for image_id, image_data in tqdm(self.data[dataset_name].items()):
             with torch.no_grad():
-                raw_image = self.get_image(image_data)
+                raw_image = self.get_image(dataset_name, image_data)
                 img = vis_processors["eval"](raw_image).unsqueeze(0).to(device)
                 for caption_ind, caption_data in enumerate(image_data['captions']):
                     caption = caption_data['caption']
@@ -729,7 +729,7 @@ class HumanRatingDataset:
         # Collect references and candidates
         with torch.no_grad():
             for image_id, image_data in tqdm(self.data[dataset_name].items()):
-                image = self.get_image(image_data)
+                image = self.get_image(dataset_name, image_data)
                 image = preprocess(image).unsqueeze(0).to(device)
                 image_features = clip_model.encode_image(image)
                 image_embed_ind = len(image_embeds)
@@ -811,7 +811,7 @@ class HumanRatingDataset:
 
         with torch.no_grad():
             for image_id, image_data in tqdm(self.data[dataset_name].items()):
-                raw_image = self.get_image(image_data)
+                raw_image = self.get_image(dataset_name, image_data)
                 image = test_transform(raw_image).to(device)
                 image = image.unsqueeze(dim=0)
                 image_feat = model.visual_encoder.visual(image, skip_last_layer=True)
