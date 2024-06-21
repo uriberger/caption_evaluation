@@ -215,7 +215,7 @@ class HumanRatingDataset:
     def compute_clipscore(self, dataset_name):
         # The CLIPScore metrics require a mapping from image id to candidate. Since we have multiple candidates per image, we need to run it multiple times
         N = self.get_candidate_num_per_image(dataset_name)
-        for caption_ind in range(N):
+        for caption_ind in tqdm(range(N)):
             # First, create a temporary json file with image file names and caption, to be used by clip score
             temp_cands_file_name = f'temp_cands_{dataset_name}.json'
             temp_refs_file_name = f'temp_refs_{dataset_name}.json'
@@ -650,8 +650,14 @@ class HumanRatingDataset:
         cos_sim = nn.CosineSimilarity()
 
         # Collect references and candidates
+        temp_file = 'tmp.pkl'
+        count = 0
         with torch.no_grad():
             for image_id, image_data in tqdm(self.data[dataset_name].items()):
+                if count % 100 == 0:
+                    with open(temp_file, 'wb') as fp:
+                        pickle.dump(self.data, fp)
+                count += 1
                 orig_image = self.get_image(image_data)
                 orig_image = preprocess(orig_image).unsqueeze(0).to(device)
                 orig_image_features = clip_model.encode_image(orig_image)
