@@ -848,15 +848,19 @@ class HumanRatingDataset:
     def compute_correlation_with_human_ratings(self, human_rating_list, metric_to_score_list, metric_to_missing_inds):
         all_metrics = self.get_all_metrics()
         
-        metric_to_corr = {}
-        for metric in all_metrics:
-            cur_human_rating_list = [human_rating_list[i] for i in range(len(human_rating_list)) if i not in metric_to_missing_inds[metric]]
-            cur_metric_score_list = [metric_to_score_list[metric][i] for i in range(len(metric_to_score_list[metric])) if i not in metric_to_missing_inds[metric]]
-            metric_to_corr[metric] = stats.pearsonr(cur_human_rating_list, cur_metric_score_list)
+        corr_type_to_func = {'pearson': stats.pearsonr, 'spearman': stats.spearmanr, 'kendall_b': stats.kendalltau, 'kendall_c': lambda x,y: stats.kendalltau(x, y, variant='c')}
+        corr_type_to_res = {}
+        for corr_type, corr_func in corr_type_to_func.items():
+            metric_to_corr = {}
+            for metric in all_metrics:
+                cur_human_rating_list = [human_rating_list[i] for i in range(len(human_rating_list)) if i not in metric_to_missing_inds[metric]]
+                cur_metric_score_list = [metric_to_score_list[metric][i] for i in range(len(metric_to_score_list[metric])) if i not in metric_to_missing_inds[metric]]
+                metric_to_corr[metric] = corr_func(cur_human_rating_list, cur_metric_score_list)
 
-        res = [(metric, float(metric_to_corr[metric].statistic)) for metric in all_metrics]
-        res.sort(key=lambda x:x[1], reverse=True)
-        return res
+            res = [(metric, float(metric_to_corr[metric].statistic)) for metric in all_metrics]
+            res.sort(key=lambda x:x[1], reverse=True)
+            corr_type_to_res[corr_type] = res
+        return corr_type_to_res
     
     def compute_mutual_correlation(self, metric_to_score_list, metric_to_missing_inds):
         all_metrics = self.get_all_metrics()
