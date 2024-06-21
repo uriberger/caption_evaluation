@@ -44,8 +44,9 @@ class HumanRatingDataset:
     def get_name(self):
         return ''
 
-    def dump(self):
-        dump_file = f'{self.get_name()}_data.pkl'
+    def dump(self, dump_file=None):
+        if dump_file is None:
+            dump_file = f'{self.get_name()}_data.pkl'
         with open(dump_file, 'wb') as fp:
             pickle.dump(self.data, fp)
 
