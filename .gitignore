@@ -10,3 +10,6 @@ caption-by-committee
 flickr8k_data
 mPLUG
 pacscore
+THumB
+*.csv
+slurm-*.out
