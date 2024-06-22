@@ -653,6 +653,10 @@ class HumanRatingDataset:
 
         # Collect references and candidates
         temp_file = f'{self.get_name()}_{dataset_name}_tmp.pkl'
+        if os.path.isfile(temp_file):
+            print(f'Loading data from file: {temp_file}', flush=True)
+            with open(temp_file, 'rb') as fp:
+                self.data = pickle.load(fp)
         count = 0
         with torch.no_grad():
             for image_id, image_data in tqdm(self.data[dataset_name].items()):
@@ -660,6 +664,8 @@ class HumanRatingDataset:
                     with open(temp_file, 'wb') as fp:
                         pickle.dump(self.data, fp)
                 count += 1
+                if 'CLIPImageScore' in image_data['captions'][0]['automatic_metrics']:
+                    continue
                 orig_image = self.get_image(dataset_name, image_data)
                 orig_image = preprocess(orig_image).unsqueeze(0).to(device)
                 orig_image_features = clip_model.encode_image(orig_image)
