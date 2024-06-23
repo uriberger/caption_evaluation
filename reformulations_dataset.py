@@ -38,6 +38,6 @@ class ReformulationsDataset(ImagePathRatingDataset):
                     'file_path': f'/cs/labs/oabend/uriber/datasets/{dataset_dir}/{cur_orig_data["filepath"]}/{cur_orig_data["filename"]}',
                     'captions': []
                 }
-            cur_ind = len(data[image_id]['captions'])
+            cur_ind = len(data[cur_dataset][image_id]['captions'])
             data[cur_dataset][image_id]['captions'].append({'caption': sample['question'], 'human_rating': 0, 'tag': 'before', 'pair': cur_ind+1, 'automatic_metrics': {}})
             data[cur_dataset][image_id]['captions'].append({'caption': sample['answer'], 'human_rating': 1, 'tag': 'after', 'pair': cur_ind, 'automatic_metrics': {}})
