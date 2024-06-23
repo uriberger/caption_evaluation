@@ -33,9 +33,10 @@ class ReformulationsDataset(ImagePathRatingDataset):
             if image_id not in data[cur_dataset]:
                 cur_orig_data = dataset2iid2orig_data[cur_dataset][image_id]
                 dataset_dir = 'COCO' if cur_dataset == 'coco' else 'flickr30'
+                split_dir = cur_orig_data["filepath"] if cur_dataset == 'coco' else 'images'
                 data[cur_dataset][image_id] = {
                     'references': [x['raw'] for x in cur_orig_data['sentences']],
-                    'file_path': f'/cs/labs/oabend/uriber/datasets/{dataset_dir}/{cur_orig_data["filepath"]}/{cur_orig_data["filename"]}',
+                    'file_path': f'/cs/labs/oabend/uriber/datasets/{dataset_dir}/{split_dir}/{cur_orig_data["filename"]}',
                     'captions': []
                 }
             cur_ind = len(data[cur_dataset][image_id]['captions'])
