@@ -696,12 +696,17 @@ class HumanRatingDataset:
 
     def compute_blip2(self, dataset_name):
         from lavis.models import load_model_and_preprocess
+        import imageio.v2 as imageio
 
         device = torch.device('cuda')
         model, vis_processors, text_processors = load_model_and_preprocess("blip2_image_text_matching", "pretrain", device=device, is_eval=True)
 
         for image_id, image_data in tqdm(self.data[dataset_name].items()):
             with torch.no_grad():
+                file_path = self.get_file_path(dataset_name, image_data)
+                im = imageio.imread(file_path)
+                if len(im.shape) < 3:
+                    continue
                 raw_image = self.get_image(dataset_name, image_data)
                 img = vis_processors["eval"](raw_image).unsqueeze(0).to(device)
                 for caption_ind, caption_data in enumerate(image_data['captions']):
