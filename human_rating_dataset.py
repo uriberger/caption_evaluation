@@ -226,7 +226,7 @@ class HumanRatingDataset:
 
             references = {}
             candidates = {}
-            image_dir = None
+            file_paths = []
             for image_data in self.data[dataset_name].values():
                 if caption_ind >= len(image_data['captions']):
                     continue
@@ -238,23 +238,15 @@ class HumanRatingDataset:
                 cur_candidate = caption_data['caption']
                 file_path = self.get_file_path(dataset_name, image_data)
                 file_name = file_path.split('/')[-1].split('.')[0]
-                cur_image_dir = '/'.join(file_path.split('/')[:-1])
                 references[file_name] = cur_references
                 candidates[file_name] = cur_candidate
-                if image_dir is None:
-                    image_dir = cur_image_dir
-                else:
-                    assert cur_image_dir == image_dir, f'Can\'t run clipscore, found images from two different directories:\n{image_dir}\n{cur_image_dir}'
+                file_paths.append(file_path)
 
             # CLIPScore expects all the images in the target directory to have a candidate; To make sure this is true, move images to a new directory
-            image_paths = [os.path.join(image_dir, path) for path in os.listdir(image_dir) if path.endswith(('.png', '.jpg', '.jpeg', '.tiff'))]
-            image_ids = [pathlib.Path(path).stem for path in image_paths]
-            if len(image_ids) > len([x for x in image_ids if x in candidates]):
-                temp_image_dir = f'temp_{dataset_name}_images'
-                os.mkdir(temp_image_dir)
-                for file_name in candidates.keys():
-                    _ = shutil.copy(os.path.join(image_dir, f'{file_name}.jpg'), temp_image_dir)
-                image_dir = temp_image_dir
+            temp_image_dir = f'temp_{dataset_name}_images'
+            os.mkdir(temp_image_dir)
+            for file_path in file_paths:
+                _ = shutil.copy(file_path, temp_image_dir)
 
             with open(temp_cands_file_name, 'w') as fp:
                 fp.write(json.dumps(candidates))
@@ -264,7 +256,7 @@ class HumanRatingDataset:
 
             _ = subprocess.call([sys.executable, 'clipscore/clipscore.py',
                                  temp_cands_file_name,
-                                 image_dir,
+                                 temp_image_dir,
                                  '--references_json', temp_refs_file_name,
                                  '--compute_other_ref_metrics', '0',
                                  '--save_per_instance', temp_res_file])
@@ -283,8 +275,7 @@ class HumanRatingDataset:
             os.remove(temp_cands_file_name)
             os.remove(temp_refs_file_name)
             os.remove(temp_res_file)
-            if temp_image_dir is not None:
-                shutil.rmtree(temp_image_dir)
+            shutil.rmtree(temp_image_dir)
             self.clean_temp_files()
     
     def compute_sentence_level_huggingface_metrics(self, dataset_name):
