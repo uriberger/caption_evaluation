@@ -29,7 +29,7 @@ class ReformulationsDataset(ImagePathRatingDataset):
         data = {'coco': {}, 'flickr30k': {}}
         for sample in samples:
             cur_dataset = 'coco' if 'COCO' in sample['image'] else 'flickr30k'
-            image_id = file_name2iid[cur_dataset](sample['image'].split('.')[0])
+            image_id = file_name2iid[cur_dataset](sample['image'].split('.')[0].split('/')[-1])
             if image_id not in data[cur_dataset]:
                 cur_orig_data = dataset2iid2orig_data[cur_dataset][image_id]
                 dataset_dir = 'COCO' if cur_dataset == 'coco' else 'flickr30'
