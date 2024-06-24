@@ -705,7 +705,7 @@ class HumanRatingDataset:
             with torch.no_grad():
                 file_path = self.get_file_path(dataset_name, image_data)
                 im = imageio.imread(file_path)
-                if len(im.shape) < 3:
+                if len(im.shape) != 3 or im.shape[2] != 3:
                     continue
                 raw_image = self.get_image(dataset_name, image_data)
                 img = vis_processors["eval"](raw_image).unsqueeze(0).to(device)
