@@ -8,7 +8,7 @@ import sys
 sys.path.append('NNEval')
 import subprocess
 import shutil
-import pathlib
+import random
 import pickle
 import math
 import torch
@@ -910,6 +910,51 @@ class HumanRatingDataset:
         ax.set_title('Mutual correlation between metrics')
         fig.tight_layout()
         plt.savefig('mutual_corr.png')
+
+    def pariwise_comparison(self):
+        all_metrics = self.get_all_metrics()
+        metric_to_correct_count = {metric: 0 for metric in all_metrics}
+        metric_to_all_count = {metric: 0 for metric in all_metrics}
+        pair_limit = None
+        for dataset_data in self.data.values():
+            for image_data in dataset_data.values():
+                if 'pair' in image_data['captions'][0]:
+                    pairs_for_comparison = []
+                    visited_inds = set()
+                    for caption_ind, caption_data in enumerate(image_data['captions']):
+                        if caption_ind in visited_inds:
+                            continue
+                        cur_pair = caption_data['pair']
+                        pairs_for_comparison.append((caption_ind, cur_pair))
+                        visited_inds.add(caption_ind)
+                        visited_inds.add(cur_pair)
+                else:
+                    n = len(image_data['captions'])
+                    pairs_for_comparison = [(i, j) for i in range(n) for j in range(i+1, n)]
+                if pair_limit is not None:
+                    pairs_for_comparison = random.sample(pairs_for_comparison, pair_limit)
+                for cur_pair in pairs_for_comparison:
+                    first_hr = image_data['captions'][cur_pair[0]]['human_rating']
+                    second_hr = image_data['captions'][cur_pair[1]]['human_rating']
+                    if first_hr == second_hr:
+                        # Since human ratings are discrete in many cases they are far more likely to be equal, while the metrics
+                        # are usually continuous. Ignore such cases
+                        continue
+                    for metric in all_metrics:
+                        if metric not in image_data['captions'][cur_pair[0]]['automatic_metrics'] or metric not in image_data['captions'][cur_pair[1]]['automatic_metrics']:
+                            continue
+                        metric_to_all_count[metric] += 1
+                        first_predicted = image_data['captions'][cur_pair[0]]['automatic_metrics'][metric]
+                        second_predicted = image_data['captions'][cur_pair[1]]['automatic_metrics'][metric]
+                        if first_hr > second_hr and first_predicted > second_predicted:
+                            metric_to_correct_count[metric] += 1
+                        elif first_hr < second_hr and first_predicted < second_predicted:
+                            metric_to_correct_count[metric] += 1
+        
+        metric_to_accuracy = {x[0]: x[1]/metric_to_all_count[x[0]] for x in metric_to_correct_count.items()}
+        res = [(metric, metric_to_accuracy[metric]) for metric in all_metrics]
+        res.sort(key=lambda x:x[1], reverse=True)
+        return res
 
     def select_predictor_metrics(self):
         all_metrics = self.get_all_metrics()
