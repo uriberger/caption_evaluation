@@ -916,8 +916,8 @@ class HumanRatingDataset:
         metric_to_correct_count = {metric: 0 for metric in all_metrics}
         metric_to_all_count = {metric: 0 for metric in all_metrics}
         pair_limit = None
-        for dataset_data in self.data.values():
-            for image_data in dataset_data.values():
+        for dataset_name, dataset_data in self.data.items():
+            for image_data in tqdm(dataset_data.values(), desc=f'Pairwise comparison on {self.get_name()}, {dataset_name}'):
                 if 'pair' in image_data['captions'][0]:
                     pairs_for_comparison = []
                     visited_inds = set()
