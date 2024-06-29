@@ -108,7 +108,8 @@ def select_predictor_metrics(train_set_name):
             for caption_data in image_data['captions']:
                 y[cur_sample_ind] = caption_data['human_rating']
                 for metric_ind, metric in enumerate(all_metrics):
-                    X[cur_sample_ind, metric_ind] = caption_data['automatic_metrics'][metric]
+                    if metric in caption_data['automatic_metrics']:
+                        X[cur_sample_ind, metric_ind] = caption_data['automatic_metrics'][metric]
                 cur_sample_ind += 1
 
     reg = LinearRegression()
