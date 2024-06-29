@@ -872,7 +872,7 @@ class HumanRatingDataset:
         return self.compute_correlation_with_human_ratings(human_rating_list, metric_to_score_list, metric_to_missing_inds)
     
     def compute_correlation_with_human_ratings(self, human_rating_list, metric_to_score_list, metric_to_missing_inds):
-        all_metrics = self.get_all_metrics()
+        all_metrics = list(metric_to_score_list.keys())
         
         corr_type_to_func = {'pearson': stats.pearsonr, 'spearman': stats.spearmanr, 'kendall_b': stats.kendalltau, 'kendall_c': lambda x,y: stats.kendalltau(x, y, variant='c')}
         corr_type_to_res = {}
