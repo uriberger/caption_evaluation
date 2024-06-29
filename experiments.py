@@ -50,20 +50,20 @@ def sampling_effect_multiple_trials(hr_dataset, fraction):
 def test_all_sampling_effects(fraction):
     dataset = CompositeDataset()
     dataset.load()
-    print(f'Composite dataset: {sampling_effect_multiple_trials(dataset)}')
+    print(f'Composite dataset: {sampling_effect_multiple_trials(dataset, fraction)}')
 
     dataset = Flickr8kDataset('expert')
     dataset.load()
-    print(f'Flickr8k expert: {sampling_effect_multiple_trials(dataset)}')
+    print(f'Flickr8k expert: {sampling_effect_multiple_trials(dataset, fraction)}')
 
     dataset = Flickr8kDataset('crowd_flower')
     dataset.load()
-    print(f'Flickr8k crowd flower: {sampling_effect_multiple_trials(dataset)}')
+    print(f'Flickr8k crowd flower: {sampling_effect_multiple_trials(dataset, fraction)}')
 
     dataset = ThumbDataset()
     dataset.load()
-    print(f'Thumb: {sampling_effect_multiple_trials(dataset)}')
+    print(f'Thumb: {sampling_effect_multiple_trials(dataset, fraction)}')
 
     dataset = PolarisDataset()
     dataset.load()
-    print(f'Polaris expert: {sampling_effect_multiple_trials(dataset)}')
+    print(f'Polaris expert: {sampling_effect_multiple_trials(dataset, fraction)}')
