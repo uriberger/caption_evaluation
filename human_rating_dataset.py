@@ -865,7 +865,7 @@ class HumanRatingDataset:
                         else:
                             metric_to_score_list[metric].append(caption_data['automatic_metrics'][metric])
                     if ensemble_weights is not None:
-                        metric_to_score_list['ensemble'].append(self.predict_with_ensemble_weights(caption_data['automatic_metric'], ensemble_weights))
+                        metric_to_score_list['ensemble'].append(self.predict_with_ensemble_weights(caption_data['automatic_metrics'], ensemble_weights))
                     human_rating_list.append(caption_data['human_rating'])
 
         self.compute_mutual_correlation(metric_to_score_list, metric_to_missing_inds, plot)
