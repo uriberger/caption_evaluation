@@ -838,7 +838,7 @@ class HumanRatingDataset:
 
     def predict_with_ensemble_weights(self, metric_res, ensemble_weights):
         prediction = 0
-        for metric_name, weight in ensemble_weights:
+        for metric_name, weight in ensemble_weights.items():
             if metric_name not in metric_res or np.isnan(metric_res[metric_name]):
                 continue
             prediction += weight * metric_res[metric_name]
