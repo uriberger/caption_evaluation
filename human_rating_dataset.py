@@ -844,14 +844,18 @@ class HumanRatingDataset:
             prediction += weight * metric_res[metric_name]
         return prediction
 
-    def compute_correlation(self, plot=True, ensemble_weights=None):
+    def compute_correlation(self, plot=True, ensemble_weights=None, dataset_name=None):
         all_metrics = self.get_all_metrics()
         if ensemble_weights is not None:
             all_metrics.append('ensemble')
         human_rating_list = []
         metric_to_score_list = {metric: [] for metric in all_metrics}
         metric_to_missing_inds = {metric: set() for metric in all_metrics}
-        for dataset_data in self.data.values():
+        if dataset_name is None:
+            dataset_values = self.data.values()
+        else:
+            dataset_values = [self.data[dataset_name]]
+        for dataset_data in dataset_values:
             for image_data in dataset_data.values():
                 for caption_data in image_data['captions']:
                     for metric in all_metrics:
