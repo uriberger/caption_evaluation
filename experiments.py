@@ -2,7 +2,7 @@ from copy import deepcopy
 import random
 
 def test_sampling_effect(hr_dataset, fraction):
-    corr_type_to_res = hr_dataset.compute_correlation()
+    corr_type_to_res = hr_dataset.compute_correlation(plot=False)
 
     # Build temp dataset
     temp_hr_dataset = deepcopy(hr_dataset)

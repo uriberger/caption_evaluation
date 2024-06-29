@@ -836,7 +836,7 @@ class HumanRatingDataset:
 
         return all_metrics
 
-    def compute_correlation(self):
+    def compute_correlation(self, plot=True):
         all_metrics = self.get_all_metrics()
         human_rating_list = []
         metric_to_score_list = {metric: [] for metric in all_metrics}
@@ -852,7 +852,7 @@ class HumanRatingDataset:
                             metric_to_score_list[metric].append(caption_data['automatic_metrics'][metric])
                     human_rating_list.append(caption_data['human_rating'])
 
-        self.compute_mutual_correlation(metric_to_score_list, metric_to_missing_inds)
+        self.compute_mutual_correlation(metric_to_score_list, metric_to_missing_inds, plot)
         return self.compute_correlation_with_human_ratings(human_rating_list, metric_to_score_list, metric_to_missing_inds)
     
     def compute_correlation_with_human_ratings(self, human_rating_list, metric_to_score_list, metric_to_missing_inds):
@@ -884,7 +884,7 @@ class HumanRatingDataset:
 
         return corr_type_to_res
     
-    def compute_mutual_correlation(self, metric_to_score_list, metric_to_missing_inds):
+    def compute_mutual_correlation(self, metric_to_score_list, metric_to_missing_inds, plot=True):
         all_metrics = self.get_all_metrics()
         n = len(all_metrics)
         corr_mat = np.zeros((n, n))
@@ -899,17 +899,18 @@ class HumanRatingDataset:
                 corr_mat[i, j] = cur_corr
                 corr_mat[j, i] = cur_corr
 
-        fig, ax = plt.subplots()
-        im = ax.imshow(corr_mat)
-        ax.set_xticks(np.arange(n), labels=all_metrics)
-        ax.set_yticks(np.arange(n), labels=all_metrics)
-        plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
-        for i in range(n):
-            for j in range(n):
-                text = ax.text(j, i, '%.2f' % corr_mat[i, j], ha="center", va="center", color="w", fontsize=6)
-        ax.set_title('Mutual correlation between metrics')
-        fig.tight_layout()
-        plt.savefig('mutual_corr.png')
+        if plot:
+            fig, ax = plt.subplots()
+            im = ax.imshow(corr_mat)
+            ax.set_xticks(np.arange(n), labels=all_metrics)
+            ax.set_yticks(np.arange(n), labels=all_metrics)
+            plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+            for i in range(n):
+                for j in range(n):
+                    text = ax.text(j, i, '%.2f' % corr_mat[i, j], ha="center", va="center", color="w", fontsize=6)
+            ax.set_title('Mutual correlation between metrics')
+            fig.tight_layout()
+            plt.savefig('mutual_corr.png')
 
     def pairwise_comparison(self):
         all_metrics = self.get_all_metrics()
