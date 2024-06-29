@@ -930,12 +930,18 @@ class HumanRatingDataset:
             fig.tight_layout()
             plt.savefig('mutual_corr.png')
 
-    def pairwise_comparison(self):
+    def pairwise_comparison(self, ensemble_weights=None, dataset_name=None):
         all_metrics = self.get_all_metrics()
+        if ensemble_weights is not None:
+            all_metrics.append('ensemble')
         metric_to_correct_count = {metric: 0 for metric in all_metrics}
         metric_to_all_count = {metric: 0 for metric in all_metrics}
         pair_limit = None
-        for dataset_name, dataset_data in self.data.items():
+        if dataset_name is None:
+            dataset_items = self.data.items()
+        else:
+            dataset_items = [(dataset_name, self.data[dataset_name])]
+        for dataset_name, dataset_data in dataset_items:
             for image_data in tqdm(dataset_data.values(), desc=f'Pairwise comparison on {self.get_name()}, {dataset_name}'):
                 if 'pair' in image_data['captions'][0]:
                     pairs_for_comparison = []
@@ -960,11 +966,15 @@ class HumanRatingDataset:
                         # are usually continuous. Ignore such cases
                         continue
                     for metric in all_metrics:
-                        if metric not in image_data['captions'][cur_pair[0]]['automatic_metrics'] or metric not in image_data['captions'][cur_pair[1]]['automatic_metrics']:
+                        if metric != 'ensemble' and (metric not in image_data['captions'][cur_pair[0]]['automatic_metrics'] or metric not in image_data['captions'][cur_pair[1]]['automatic_metrics']):
                             continue
                         metric_to_all_count[metric] += 1
-                        first_predicted = image_data['captions'][cur_pair[0]]['automatic_metrics'][metric]
-                        second_predicted = image_data['captions'][cur_pair[1]]['automatic_metrics'][metric]
+                        if metric == 'ensemble':
+                            first_predicted = self.predict_with_ensemble_weights(image_data['captions'][cur_pair[0]]['automatic_metrics'], ensemble_weights)
+                            second_predicted = self.predict_with_ensemble_weights(image_data['captions'][cur_pair[1]]['automatic_metrics'], ensemble_weights)
+                        else:
+                            first_predicted = image_data['captions'][cur_pair[0]]['automatic_metrics'][metric]
+                            second_predicted = image_data['captions'][cur_pair[1]]['automatic_metrics'][metric]
                         if first_hr > second_hr and first_predicted > second_predicted:
                             metric_to_correct_count[metric] += 1
                         elif first_hr < second_hr and first_predicted < second_predicted:
