@@ -836,8 +836,18 @@ class HumanRatingDataset:
 
         return all_metrics
 
-    def compute_correlation(self, plot=True):
+    def predict_with_ensemble_weights(self, metric_res, ensemble_weights):
+        prediction = 0
+        for metric_name, weight in ensemble_weights:
+            if metric_name not in metric_res or np.isnan(metric_res[metric_name]):
+                continue
+            prediction += weight * metric_res[metric_name]
+        return prediction
+
+    def compute_correlation(self, plot=True, ensemble_weights=None):
         all_metrics = self.get_all_metrics()
+        if ensemble_weights is not None:
+            all_metrics.append('ensemble')
         human_rating_list = []
         metric_to_score_list = {metric: [] for metric in all_metrics}
         metric_to_missing_inds = {metric: set() for metric in all_metrics}
@@ -850,6 +860,8 @@ class HumanRatingDataset:
                             metric_to_score_list[metric].append(np.nan)
                         else:
                             metric_to_score_list[metric].append(caption_data['automatic_metrics'][metric])
+                    if ensemble_weights is not None:
+                        metric_to_score_list['ensemble'].append(self.predict_with_ensemble_weights(caption_data['automatic_metric'], ensemble_weights))
                     human_rating_list.append(caption_data['human_rating'])
 
         self.compute_mutual_correlation(metric_to_score_list, metric_to_missing_inds, plot)
