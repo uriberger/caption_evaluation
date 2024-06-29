@@ -859,6 +859,8 @@ class HumanRatingDataset:
             for image_data in dataset_data.values():
                 for caption_data in image_data['captions']:
                     for metric in all_metrics:
+                        if metric == 'ensemble':
+                            continue
                         if metric not in caption_data['automatic_metrics'] or np.isnan(caption_data['automatic_metrics'][metric]):
                             metric_to_missing_inds[metric].add(len(human_rating_list))
                             metric_to_score_list[metric].append(np.nan)
