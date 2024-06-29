@@ -911,7 +911,7 @@ class HumanRatingDataset:
         fig.tight_layout()
         plt.savefig('mutual_corr.png')
 
-    def pariwise_comparison(self):
+    def pairwise_comparison(self):
         all_metrics = self.get_all_metrics()
         metric_to_correct_count = {metric: 0 for metric in all_metrics}
         metric_to_all_count = {metric: 0 for metric in all_metrics}
