@@ -829,11 +829,14 @@ class HumanRatingDataset:
                     embed_score = image_embed.dot(text_embed).item()
                     self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['mPLUGScore'] = embed_score
 
-    def get_all_metrics(self):
+    def get_all_metrics(self, sort_by_type=False):
         # all_metrics = list(set([x for dataset_data in self.data.values() for image_data in dataset_data.values() for caption_data in image_data['captions'] for x in caption_data['automatic_metrics'].keys()]))
         # all_metrics = [x for x in all_metrics if not x.startswith('SPICE_')]
-        all_metrics = ['Exact noun overlap', 'Fuzzy noun overlap', 'Exact verb overlap', 'Fuzzy verb overlap', 'CLIPScore', 'RefCLIPScore', 'METEOR', 'PAC', 'ROUGE', 'RefPAC', 'SPICE', 'BLEU1', 'BLEU2', 'BLEU3', 'BLEU4', 'BLIP2Score', 'CIDEr', 'CLIPImageScore', 'MPNet', 'polos']
-        all_metrics.sort()
+        if sort_by_type:
+            all_metrics = ['BLEU1', 'BLEU2', 'BLEU3', 'BLEU4', 'CIDEr', 'Exact noun overlap', 'Exact verb overlap', 'METEOR', 'ROUGE', 'Fuzzy noun overlap', 'Fuzzy verb overlap', 'SPICE', 'MPNetScore', 'BLIP2Score', 'CLIPImageScore', 'CLIPScore', 'PACScore', 'RefCLIPScore', 'RefPACScore', 'polos']
+        else:
+            all_metrics = ['Exact noun overlap', 'Fuzzy noun overlap', 'Exact verb overlap', 'Fuzzy verb overlap', 'CLIPScore', 'RefCLIPScore', 'METEOR', 'PACScore', 'ROUGE', 'RefPACScore', 'SPICE', 'BLEU1', 'BLEU2', 'BLEU3', 'BLEU4', 'BLIP2Score', 'CIDEr', 'CLIPImageScore', 'MPNetScore', 'polos']
+            all_metrics.sort()
 
         return all_metrics
 
@@ -904,7 +907,7 @@ class HumanRatingDataset:
         return corr_type_to_res
     
     def compute_mutual_correlation(self, metric_to_score_list, metric_to_missing_inds, plot=True):
-        all_metrics = self.get_all_metrics()
+        all_metrics = self.get_all_metrics(True)
         n = len(all_metrics)
         corr_mat = np.zeros((n, n))
         for i in range(n):
@@ -921,13 +924,15 @@ class HumanRatingDataset:
         if plot:
             fig, ax = plt.subplots()
             im = ax.imshow(corr_mat)
+            cbar = ax.figure.colorbar(im, ax=ax)
+            cbar.ax.set_ylabel('Correlation', rotation=-90, va="bottom")
             ax.set_xticks(np.arange(n), labels=all_metrics)
             ax.set_yticks(np.arange(n), labels=all_metrics)
             plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
-            for i in range(n):
-                for j in range(n):
-                    text = ax.text(j, i, '%.2f' % corr_mat[i, j], ha="center", va="center", color="w", fontsize=6)
-            ax.set_title('Mutual correlation between metrics')
+            # for i in range(n):
+            #     for j in range(n):
+            #         text = ax.text(j, i, '%.2f' % corr_mat[i, j], ha="center", va="center", color="w", fontsize=6)
+            # ax.set_title('Mutual correlation between metrics')
             fig.tight_layout()
             plt.savefig('mutual_corr.png')
 
