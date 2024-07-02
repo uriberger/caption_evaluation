@@ -922,12 +922,19 @@ class HumanRatingDataset:
                 corr_mat[j, i] = cur_corr
 
         if plot:
+            def shorten_name(metric_name):
+                name_parts = metric_name.split()
+                if len(name_parts) > 2:
+                    metric_name = name_parts[0] + ' ' + ''.join([x.capitalize()[0] for x in name_parts[1:]])
+                return metric_name
+
+            all_metrics_for_plot = [shorten_name(x) for x in all_metrics]
             fig, ax = plt.subplots()
             im = ax.imshow(corr_mat)
             cbar = ax.figure.colorbar(im, ax=ax)
             cbar.ax.set_ylabel('Correlation', rotation=-90, va="bottom")
-            ax.set_xticks(np.arange(n), labels=all_metrics)
-            ax.set_yticks(np.arange(n), labels=all_metrics)
+            ax.set_xticks(np.arange(n), labels=all_metrics_for_plot)
+            ax.set_yticks(np.arange(n), labels=all_metrics_for_plot)
             plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
             # for i in range(n):
             #     for j in range(n):
