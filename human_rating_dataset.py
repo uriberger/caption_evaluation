@@ -941,9 +941,10 @@ class HumanRatingDataset:
             #     for j in range(n):
             #         text = ax.text(j, i, '%.2f' % corr_mat[i, j], ha="center", va="center", color="w", fontsize=6)
             # ax.set_title('Mutual correlation between metrics')
-            blue_patch = mpatches.Patch(color='blue', label='Lexical similarity')
+            #blue_patch = mpatches.Patch(color='blue', label='Lexical similarity')
             red_patch = mpatches.Patch(color='red', label='Transformer based')
-            plt.legend(handles=[blue_patch, red_patch])
+            #plt.legend(handles=[blue_patch, red_patch])
+            plt.legend(handles=[red_patch])
             fig.tight_layout()
             plt.savefig('mutual_corr.png')
 
