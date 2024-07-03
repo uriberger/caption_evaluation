@@ -77,9 +77,6 @@ def get_random_subset(hr_dataset, fraction):
     return temp_hr_dataset
 
 def select_predictor_metrics(train_set_name):
-    # all_metrics = ['Exact noun overlap', 'Fuzzy noun overlap', 'Exact verb overlap', 'Fuzzy verb overlap', 'CLIPScore', 'RefCLIPScore', 'METEOR', 'PAC', 'ROUGE', 'RefPAC', 'SPICE', 'BLEU1', 'BLEU2', 'BLEU3', 'BLEU4', 'BLIP2Score', 'CIDEr', 'CLIPImageScore', 'MPNet', 'polos']
-    all_metrics = ['Exact noun overlap', 'Fuzzy noun overlap', 'Exact verb overlap', 'Fuzzy verb overlap', 'CLIPScore', 'RefCLIPScore', 'METEOR', 'PAC', 'ROUGE', 'RefPAC', 'SPICE', 'BLEU1', 'BLEU2', 'BLEU3', 'BLEU4', 'BLIP2Score', 'CIDEr', 'MPNet', 'polos']
-
     if train_set_name == 'composite':
         train_set = CompositeDataset()
     elif train_set_name == 'flickr8k_expert':
@@ -97,6 +94,8 @@ def select_predictor_metrics(train_set_name):
 
     if train_set_name == 'polaris':
         del train_set.data['test']
+
+    all_metrics = train_set.get_all_metrics()
 
     N = sum([sum([len(image_data['captions']) for image_data in dataset_data.values()]) for dataset_data in train_set.data.values()])
     X = np.zeros((N, len(all_metrics)))
