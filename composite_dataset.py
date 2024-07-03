@@ -86,9 +86,12 @@ class CompositeDataset(ImagePathRatingDataset):
                     continue
                 cap_num = dataset2caption_num[dataset_name]
                 for i in range(cap_num):
+                    if i == 0:
+                        # First caption in this dataset is one of the references, like in the CLIPScore paper: ignore
+                        continue
                     data[image_id]['captions'].append({'caption': sample[28+i], 'human_rating': int(sample[28+cap_num+i]), 'automatic_metrics': {}})
                     if i == 0:
-                        # First caption in this dataset is one of the references
+                        # If we didn't ignore, tell the ref based metrics to ignore the same reference
                         data[image_id]['captions'][0]['ignore_refs'] = [np.argmin([distance(sample[28+i], ref) for ref in data[image_id]['references']])]
 
         data = {x[0]: x[1] for x in data.items() if len(x[1]['captions']) > 0}

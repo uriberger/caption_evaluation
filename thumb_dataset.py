@@ -1,5 +1,7 @@
 from image_path_rating_dataset import ImagePathRatingDataset
 import json
+from Levenshtein import distance
+import numpy as np
 
 class ThumbDataset(ImagePathRatingDataset):
     def get_name(self):
@@ -26,8 +28,14 @@ class ThumbDataset(ImagePathRatingDataset):
                     'file_path': f'/cs/labs/oabend/uriber/datasets/COCO/{cur_orig_data["filepath"]}/{sample["image"]}',
                     'captions': []
                 }
+            if len(data[image_id]['captions']) == 4:
+                # Fifth caption in this dataset is one of the references. Following CLIPScore, ignore this candidate
+                continue
             caption = sample['hyp']
             human_rating = sample['human_score']
             data[image_id]['captions'].append({'caption': caption, 'human_rating': human_rating, 'automatic_metrics': {}})
+            if len(data[image_id]['captions']) == 5:
+                # If we didn't ignore, tell the ref based metrics to ignore the same reference
+                data[image_id]['captions'][-1]['ignore_refs'] = [np.argmin([distance(caption, ref) for ref in data[image_id]['references']])]
 
         self.data['coco'] = data
