@@ -543,8 +543,8 @@ class HumanRatingDataset:
         refpac_scores = 2 * pac_scores * per_instance_text_text / (pac_scores + per_instance_text_text)
 
         for image_id, caption_ind, pac_score, refpac_score in zip(image_ids, caption_inds, pac_scores, refpac_scores):
-            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['PAC'] = pac_score
-            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['RefPAC'] = refpac_score
+            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['PACScore'] = pac_score
+            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['RefPACScore'] = refpac_score
 
         self.clean_temp_files()
     
@@ -665,7 +665,7 @@ class HumanRatingDataset:
                     score = statistics.mean(scores)
                 elif agg_method == 'max':
                     score = max(scores)
-                self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['MPNet'] = score
+                self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['MPNetScore'] = score
 
     def compute_blip2(self, dataset_name):
         from lavis.models import load_model_and_preprocess
