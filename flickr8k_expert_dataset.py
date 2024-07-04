@@ -49,5 +49,10 @@ class Flickr8kDataset(ImagePathRatingDataset):
                 else:
                     human_ratings = [float(line_parts[2])]
                 data[image_id]['captions'].append({'caption': caption, 'human_ratings': human_ratings, 'automatic_metrics': {}})
+
+        # Remove candidates from the reference set
+        for image_id, image_data in data.items():
+            candidates = [x['caption'] for x in image_data['captions']]
+            data[image_id]['references'] = [x for x in data[image_id]['references'] if x not in candidates]
         
         self.data['flickr8k'] = data
