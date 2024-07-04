@@ -46,9 +46,8 @@ class Flickr8kDataset(ImagePathRatingDataset):
                     continue # Similar to the SPICE paper and CLIPSCore paper
                 if self.name == 'expert':
                     human_ratings = [float(x) for x in line_parts[2:]]
-                    human_rating = sum(human_ratings)/len(human_ratings)
                 else:
-                    human_rating = float(line_parts[2])
-                data[image_id]['captions'].append({'caption': caption, 'human_rating': human_rating, 'automatic_metrics': {}})
+                    human_ratings = [float(line_parts[2])]
+                data[image_id]['captions'].append({'caption': caption, 'human_ratings': human_ratings, 'automatic_metrics': {}})
         
         self.data['flickr8k'] = data

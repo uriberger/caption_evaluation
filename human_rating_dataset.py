@@ -863,17 +863,18 @@ class HumanRatingDataset:
         for dataset_data in dataset_values:
             for image_data in dataset_data.values():
                 for caption_data in image_data['captions']:
-                    for metric in all_metrics:
-                        if metric == 'ensemble':
-                            continue
-                        if metric not in caption_data['automatic_metrics'] or np.isnan(caption_data['automatic_metrics'][metric]):
-                            metric_to_missing_inds[metric].add(len(human_rating_list))
-                            metric_to_score_list[metric].append(np.nan)
-                        else:
-                            metric_to_score_list[metric].append(caption_data['automatic_metrics'][metric])
-                    if ensemble_weights is not None:
-                        metric_to_score_list['ensemble'].append(self.predict_with_ensemble_weights(caption_data['automatic_metrics'], ensemble_weights))
-                    human_rating_list.append(caption_data['human_rating'])
+                    for human_rating in caption_data['human_ratings']:
+                        for metric in all_metrics:
+                            if metric == 'ensemble':
+                                continue
+                            if metric not in caption_data['automatic_metrics'] or np.isnan(caption_data['automatic_metrics'][metric]):
+                                metric_to_missing_inds[metric].add(len(human_rating_list))
+                                metric_to_score_list[metric].append(np.nan)
+                            else:
+                                metric_to_score_list[metric].append(caption_data['automatic_metrics'][metric])
+                        if ensemble_weights is not None:
+                            metric_to_score_list['ensemble'].append(self.predict_with_ensemble_weights(caption_data['automatic_metrics'], ensemble_weights))
+                        human_rating_list.append(human_rating)
 
         self.compute_mutual_correlation(metric_to_score_list, metric_to_missing_inds, plot)
         return self.compute_correlation_with_human_ratings(human_rating_list, metric_to_score_list, metric_to_missing_inds)
