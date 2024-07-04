@@ -42,7 +42,7 @@ class Flickr8kDataset(ImagePathRatingDataset):
                 caption_image_id = int(line_parts[1].split('_')[0])
                 caption_ind = int(line_parts[1].split('#')[1])
                 caption = iid2captions[caption_image_id][caption_ind]
-                if caption in data[image_id]['references']:
+                if self.name == 'expert' and caption in data[image_id]['references']:
                     continue # Similar to the SPICE paper and CLIPSCore paper
                 if self.name == 'expert':
                     human_ratings = [float(x) for x in line_parts[2:]]
