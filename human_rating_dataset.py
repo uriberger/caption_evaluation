@@ -246,10 +246,10 @@ class HumanRatingDataset:
         _, per_instance_text_text = clipscore.get_refonlyclipscore(model, refs, candidate_feats, device)
         refclipscores = 2 * per_instance_image_text * per_instance_text_text / (per_instance_image_text + per_instance_text_text)
 
-        for sample_entry, clip_score, ref_clip_score in zip(image_id_caption_ind_pairs, per_instance_text_text, refclipscores):
+        for sample_entry, clip_score, ref_clip_score in zip(image_id_caption_ind_pairs, per_instance_image_text, refclipscores):
             image_id, caption_ind = sample_entry
-            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['CLIPScore'] = clip_score
-            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['RefCLIPScore'] = ref_clip_score
+            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['CLIPScore'] = float(clip_score)
+            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['RefCLIPScore'] = float(ref_clip_score)
     
     def compute_sentence_level_huggingface_metrics(self, dataset_name):
         ter = load('ter')
