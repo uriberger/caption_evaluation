@@ -216,68 +216,40 @@ class HumanRatingDataset:
         return
     
     def compute_clipscore(self, dataset_name):
-        # The CLIPScore metrics require a mapping from image id to candidate. Since we have multiple candidates per image, we need to run it multiple times
-        N = self.get_candidate_num_per_image(dataset_name)
-        for caption_ind in tqdm(range(N)):
-            # First, create a temporary json file with image file names and caption, to be used by clip score
-            temp_cands_file_name = f'temp_cands_{dataset_name}.json'
-            temp_refs_file_name = f'temp_refs_{dataset_name}.json'
-            temp_res_file = f'temp_clipscore.json'
-            temp_image_dir = None
+        import clip
+        sys.path.append('clipscore')
+        import clipscore
 
-            references = {}
-            candidates = {}
-            file_paths = []
-            for image_data in self.data[dataset_name].values():
-                if caption_ind >= len(image_data['captions']):
-                    continue
-                caption_data = image_data['captions'][caption_ind]
+        device = torch.device('cuda')
+        model, transform = clip.load("ViT-B/32", device=device, jit=False)
+        model.eval()
+
+        images = []
+        refs = []
+        candidates = []
+        image_id_caption_ind_pairs = []
+
+        for image_id, image_data in tqdm(self.data[dataset_name].items()):
+            file_path = self.get_file_path(dataset_name, image_data)
+            for caption_ind, caption_data in enumerate(image_data['captions']):
+                image_id_caption_ind_pairs.append((image_id, caption_ind))
+                images.append(file_path)
                 ignore_refs = []
                 if 'ignore_refs' in caption_data:
                     ignore_refs = caption_data['ignore_refs']
-                cur_references = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
-                cur_candidate = caption_data['caption']
-                file_path = self.get_file_path(dataset_name, image_data)
-                file_name = file_path.split('/')[-1].split('.')[0]
-                references[file_name] = cur_references
-                candidates[file_name] = cur_candidate
-                file_paths.append(file_path)
+                cur_refs = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
+                refs.append([' '.join(gt.split()) for gt in cur_refs])
+                candidates.append(' '.join(caption_data['caption'].split()))
+        
+        image_feats = clipscore.extract_all_images(images, model, device, batch_size=64, num_workers=8)
+        _, per_instance_image_text, candidate_feats = clipscore.get_clip_score(model, image_feats, candidates, device)
+        _, per_instance_text_text = clipscore.get_refonlyclipscore(model, refs, candidate_feats, device)
+        refclipscores = 2 * per_instance_image_text * per_instance_text_text / (per_instance_image_text + per_instance_text_text)
 
-            # CLIPScore expects all the images in the target directory to have a candidate; To make sure this is true, move images to a new directory
-            temp_image_dir = f'temp_{dataset_name}_images'
-            os.mkdir(temp_image_dir)
-            for file_path in file_paths:
-                _ = shutil.copy(file_path, temp_image_dir)
-
-            with open(temp_cands_file_name, 'w') as fp:
-                fp.write(json.dumps(candidates))
-
-            with open(temp_refs_file_name, 'w') as fp:
-                fp.write(json.dumps(references))
-
-            _ = subprocess.call([sys.executable, 'clipscore/clipscore.py',
-                                 temp_cands_file_name,
-                                 temp_image_dir,
-                                 '--references_json', temp_refs_file_name,
-                                 '--compute_other_ref_metrics', '0',
-                                 '--save_per_instance', temp_res_file])
-            
-            # Log results
-            with open(temp_res_file, 'r') as fp:
-                results = json.load(fp)
-
-            file_name2iid = self.get_file_name2iid_func(dataset_name)
-            for file_name, score_dict in results.items():
-                image_id = file_name2iid(file_name)
-                for metric, score in score_dict.items():
-                    self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics'][metric] = score
-
-            # Now, delete the temporary files
-            os.remove(temp_cands_file_name)
-            os.remove(temp_refs_file_name)
-            os.remove(temp_res_file)
-            shutil.rmtree(temp_image_dir)
-            self.clean_temp_files()
+        for sample_entry, clip_score, ref_clip_score in zip(image_id_caption_ind_pairs, per_instance_text_text, refclipscores):
+            image_id, caption_ind = sample_entry
+            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['CLIPScore'] = clip_score
+            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['RefCLIPScore'] = ref_clip_score
     
     def compute_sentence_level_huggingface_metrics(self, dataset_name):
         ter = load('ter')
