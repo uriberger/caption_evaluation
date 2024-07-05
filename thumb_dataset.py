@@ -33,7 +33,7 @@ class ThumbDataset(ImagePathRatingDataset):
                 continue
             caption = sample['hyp']
             human_rating = sample['human_score']
-            data[image_id]['captions'].append({'caption': caption, 'human_rating': human_rating, 'automatic_metrics': {}})
+            data[image_id]['captions'].append({'caption': caption, 'human_ratings': [human_rating], 'automatic_metrics': {}})
             if len(data[image_id]['captions']) == 5:
                 # If we didn't ignore, tell the ref based metrics to ignore the same reference
                 data[image_id]['captions'][-1]['ignore_refs'] = [np.argmin([distance(caption, ref) for ref in data[image_id]['references']])]
