@@ -29,7 +29,7 @@ class PolarisDataset(HumanRatingDataset):
                         'references': sample['refs'],
                         'captions': []
                     }
-                data[key][image_id]['captions'].append({'caption': sample['cand'], 'human_rating': sample['human_score'], 'automatic_metrics': {}})
+                data[key][image_id]['captions'].append({'caption': sample['cand'], 'human_ratings': [sample['human_score']], 'automatic_metrics': {}})
 
         self.data = data
     
