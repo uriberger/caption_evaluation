@@ -35,11 +35,11 @@ class CompositeDataset(ImagePathRatingDataset):
     def get_file_name2iid_func(self, dataset_name):
         return file_name2iid[dataset_name]
     
-    def collect_data(self, remove_gt_candidates=True):
+    def collect_data(self, remove_gt_candidates=True, remove_gt_candidates_from_ref_set=False):
         datasets = ['flickr8k', 'flickr30k', 'coco']
 
         for dataset in datasets:
-            self.collect_data_for_dataset(dataset, remove_gt_candidates)
+            self.collect_data_for_dataset(dataset, remove_gt_candidates, remove_gt_candidates_from_ref_set)
 
         res_str = 'Collected '
         first = True
@@ -51,7 +51,7 @@ class CompositeDataset(ImagePathRatingDataset):
             res_str += f'{len(self.data[dataset])} images and {len([x for outer in self.data[dataset].values() for x in outer["captions"]])} captions for {dataset}'
         print(res_str, flush=True)
 
-    def collect_data_for_dataset(self, dataset_name, remove_gt_candidates):
+    def collect_data_for_dataset(self, dataset_name, remove_gt_candidates, remove_gt_candidates_from_ref_set):
         human_rating_file_path = os.path.join(human_rating_dir, f'{dataset_to_file_name[dataset_name]}_correctness.csv')
 
         if dataset_name == 'flickr8k':
@@ -105,7 +105,7 @@ class CompositeDataset(ImagePathRatingDataset):
 
         data = {x[0]: x[1] for x in data.items() if len(x[1]['captions']) > 0}
 
-        if not remove_gt_candidates:
+        if remove_gt_candidates_from_ref_set:
             # Remove candidates from the reference set
             for image_id, image_data in data.items():
                 cand_ind_in_refs = np.argmin([distance(image_data['captions'][0]['caption'], ref) for ref in data[image_id]['references']])
