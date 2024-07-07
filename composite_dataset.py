@@ -51,7 +51,7 @@ class CompositeDataset(ImagePathRatingDataset):
             res_str += f'{len(self.data[dataset])} images and {len([x for outer in self.data[dataset].values() for x in outer["captions"]])} captions for {dataset}'
         print(res_str, flush=True)
 
-    def collect_data_for_dataset(self, dataset_name):
+    def collect_data_for_dataset(self, dataset_name, remove_gt_candidates=True):
         human_rating_file_path = os.path.join(human_rating_dir, f'{dataset_to_file_name[dataset_name]}_correctness.csv')
 
         if dataset_name.startswith('flickr'):
@@ -86,14 +86,21 @@ class CompositeDataset(ImagePathRatingDataset):
                     continue
                 cap_num = dataset2caption_num[dataset_name]
                 for i in range(cap_num):
-                    if i == 0:
+                    if remove_gt_candidates and i == 0:
                         # First caption in this dataset is one of the references, like in the CLIPScore paper: ignore
                         continue
                     data[image_id]['captions'].append({'caption': sample[28+i], 'human_ratings': [int(sample[28+cap_num+i])], 'automatic_metrics': {}})
-                    if i == 0:
-                        # If we didn't ignore, tell the ref based metrics to ignore the same reference
-                        data[image_id]['captions'][0]['ignore_refs'] = [np.argmin([distance(sample[28+i], ref) for ref in data[image_id]['references']])]
+                    # if i == 0:
+                    #     # If we didn't ignore, tell the ref based metrics to ignore the same reference
+                    #     data[image_id]['captions'][0]['ignore_refs'] = [np.argmin([distance(sample[28+i], ref) for ref in data[image_id]['references']])]
 
         data = {x[0]: x[1] for x in data.items() if len(x[1]['captions']) > 0}
+
+        if not remove_gt_candidates:
+            # Remove candidates from the reference set
+            for image_id, image_data in data.items():
+                cand_ind_in_refs = np.argmin([distance(image_data['captions'][0]['caption'], ref) for ref in data[image_id]['references']])
+                ref_set = data[image_id]['references']
+                data[image_id]['references'] = [ref_set[i] for i in range(len(ref_set)) if i != cand_ind_in_refs]
 
         self.data[dataset_name] = data
