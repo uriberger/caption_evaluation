@@ -35,11 +35,11 @@ class CompositeDataset(ImagePathRatingDataset):
     def get_file_name2iid_func(self, dataset_name):
         return file_name2iid[dataset_name]
     
-    def collect_data(self):
+    def collect_data(self, remove_gt_candidates=True):
         datasets = ['flickr8k', 'flickr30k', 'coco']
 
         for dataset in datasets:
-            self.collect_data_for_dataset(dataset)
+            self.collect_data_for_dataset(dataset, remove_gt_candidates)
 
         res_str = 'Collected '
         first = True
@@ -51,10 +51,18 @@ class CompositeDataset(ImagePathRatingDataset):
             res_str += f'{len(self.data[dataset])} images and {len([x for outer in self.data[dataset].values() for x in outer["captions"]])} captions for {dataset}'
         print(res_str, flush=True)
 
-    def collect_data_for_dataset(self, dataset_name, remove_gt_candidates=True):
+    def collect_data_for_dataset(self, dataset_name, remove_gt_candidates):
         human_rating_file_path = os.path.join(human_rating_dir, f'{dataset_to_file_name[dataset_name]}_correctness.csv')
 
-        if dataset_name.startswith('flickr'):
+        if dataset_name == 'flickr8k':
+            with open('pacscore/datasets/flickr8k/flickr8k.json', 'r') as fp:
+                json_data = json.load(fp)
+            data = {int(x[0].split('_')[0]): {
+                'references': x[1]['ground_truth'],
+                'file_path': f'/cs/snapless/gabis/uriber/caption_evaluation/pacscore/datasets/flickr8k/images/{x[1]["image_path"].split("/")[1]}',
+                'captions': []
+                } for x in json_data.items()}
+        elif dataset_name == 'flickr30k':
             with open('/cs/labs/oabend/uriber/datasets/flickr30/karpathy/dataset_flickr30k.json', 'r') as fp:
                 json_data = json.load(fp)['images']
             data = {int(x['filename'].split('.')[0]): {
@@ -83,6 +91,7 @@ class CompositeDataset(ImagePathRatingDataset):
                     continue
                 image_id = int(image_id_str)
                 if image_id not in data:
+                    print(f'Missing image in {dataset_name}')
                     continue
                 cap_num = dataset2caption_num[dataset_name]
                 for i in range(cap_num):
