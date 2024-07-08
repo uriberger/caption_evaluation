@@ -22,8 +22,8 @@ entry2iid = {
 }
 dataset2caption_num = {
     'flickr8k': 3,
-    'flickr30k': 3,
-    'coco': 3
+    'flickr30k': 4,
+    'coco': 4
 }
 dataset_to_file_name = {'flickr8k': '8k', 'flickr30k': '30k', 'coco': 'coco'}
 human_rating_dir = '/cs/labs/oabend/uriber/datasets/AMT_eval'
@@ -95,6 +95,8 @@ class CompositeDataset(ImagePathRatingDataset):
                     continue
                 cap_num = dataset2caption_num[dataset_name]
                 for i in range(cap_num):
+                    if i == 3:
+                        continue # All previous studies only used the first 3 captions
                     if remove_gt_candidates and i == 0:
                         # First caption in this dataset is one of the references, like in the CLIPScore paper: ignore
                         continue
