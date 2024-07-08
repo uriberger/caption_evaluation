@@ -35,7 +35,7 @@ class CompositeDataset(ImagePathRatingDataset):
     def get_file_name2iid_func(self, dataset_name):
         return file_name2iid[dataset_name]
     
-    def collect_data(self, remove_gt_candidates=True, remove_gt_candidates_from_ref_set=False):
+    def collect_data(self, remove_gt_candidates=False, remove_gt_candidates_from_ref_set=True):
         datasets = ['flickr8k', 'flickr30k', 'coco']
 
         for dataset in datasets:
