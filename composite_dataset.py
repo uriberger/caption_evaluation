@@ -22,8 +22,8 @@ entry2iid = {
 }
 dataset2caption_num = {
     'flickr8k': 3,
-    'flickr30k': 4,
-    'coco': 4
+    'flickr30k': 3,
+    'coco': 3
 }
 dataset_to_file_name = {'flickr8k': '8k', 'flickr30k': '30k', 'coco': 'coco'}
 human_rating_dir = '/cs/labs/oabend/uriber/datasets/AMT_eval'
