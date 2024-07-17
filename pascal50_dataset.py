@@ -3,6 +3,8 @@ import scipy as sp
 import os
 import random
 
+system_ind2type = {1: 'M', 2: 'M', 3: 'M', 4: 'M', 5: 'M', 6: 'H', 7: 'R'}
+
 class Pascal50Dataset(ImagePathRatingDataset):
     def get_name(self):
         return 'pascal50'
@@ -23,7 +25,9 @@ class Pascal50Dataset(ImagePathRatingDataset):
 
         data_dir = 'pyCIDErConsensus'
         conc_data = sp.io.loadmat(f'{data_dir}/consensus_pascal.mat')['triplets']
-        pair_data = sp.io.loadmat(f'{data_dir}/pair_pascal.mat')['new_input']
+        pair_pascal = sp.io.loadmat(f'{data_dir}/pair_pascal.mat')
+        pair_data = pair_pascal['new_input']
+        system_data = pair_pascal['new_data']
         data = {}
         for im_ind in range(4000):
             im_data = pair_data[0, im_ind]
@@ -36,7 +40,9 @@ class Pascal50Dataset(ImagePathRatingDataset):
                         'captions': []
                     }
             cand1 = im_data[1][0]
+            type1 = system_ind2type[system_data[im_ind, 0]]
             cand2 = im_data[2][0]
+            type2 = system_ind2type[system_data[im_ind, 1]]
             votes_per_image = 48
             first_won_count = 0
             for pair_ind in range(votes_per_image):
@@ -63,8 +69,8 @@ class Pascal50Dataset(ImagePathRatingDataset):
             else: # Like CLIPScore, break ties randomly
                 first_won = (random.randint(1, 2) == 1)
             cur_ind = len(data[iid]['captions'])
-            data[iid]['captions'].append({'caption': cand1, 'human_ratings': [int(first_won)], 'pair': cur_ind+1, 'automatic_metrics': {}})
-            data[iid]['captions'].append({'caption': cand2, 'human_ratings': [1-int(first_won)], 'pair': cur_ind, 'automatic_metrics': {}})
+            data[iid]['captions'].append({'caption': cand1, 'type': type1, 'human_ratings': [int(first_won)], 'pair': cur_ind+1, 'automatic_metrics': {}})
+            data[iid]['captions'].append({'caption': cand2, 'type': type2, 'human_ratings': [1-int(first_won)], 'pair': cur_ind, 'automatic_metrics': {}})
 
         # Following previous work, randomly select 5 references
         for iid, im_data in data.items():

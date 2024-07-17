@@ -921,7 +921,7 @@ class HumanRatingDataset:
             fig.tight_layout()
             plt.savefig('mutual_corr.png')
 
-    def pairwise_comparison(self, ensemble_weights=None, dataset_name=None):
+    def pairwise_comparison(self, ensemble_weights=None, dataset_name=None, tested_type=None):
         all_metrics = self.get_all_metrics()
         if ensemble_weights is not None:
             all_metrics.append('ensemble')
@@ -950,22 +950,34 @@ class HumanRatingDataset:
                 if pair_limit is not None:
                     pairs_for_comparison = random.sample(pairs_for_comparison, pair_limit)
                 for cur_pair in pairs_for_comparison:
-                    first_hr = image_data['captions'][cur_pair[0]]['human_ratings'][0] # Assuming a single rating
-                    second_hr = image_data['captions'][cur_pair[1]]['human_ratings'][0] # Assuming a single rating
+                    first_caption = image_data['captions'][cur_pair[0]]
+                    second_caption = image_data['captions'][cur_pair[1]]
+                    if tested_type is not None:
+                        system_types = sorted([first_caption['type'], second_caption['type']])
+                        if tested_type == 'HC' and system_types != ['H', 'H']:
+                            continue
+                        if tested_type == 'HI' and system_types != ['H', 'R']:
+                            continue
+                        if tested_type == 'HM' and system_types != ['H', 'M']:
+                            continue
+                        if tested_type == 'MM' and system_types != ['M', 'M']:
+                            continue
+                    first_hr = first_caption['human_ratings'][0] # Assuming a single rating
+                    second_hr = second_caption['human_ratings'][0] # Assuming a single rating
                     if first_hr == second_hr:
                         # Since human ratings are discrete in many cases they are far more likely to be equal, while the metrics
                         # are usually continuous. Ignore such cases
                         continue
                     for metric in all_metrics:
-                        if metric != 'ensemble' and (metric not in image_data['captions'][cur_pair[0]]['automatic_metrics'] or metric not in image_data['captions'][cur_pair[1]]['automatic_metrics']):
+                        if metric != 'ensemble' and (metric not in first_caption['automatic_metrics'] or metric not in second_caption['automatic_metrics']):
                             continue
                         metric_to_all_count[metric] += 1
                         if metric == 'ensemble':
-                            first_predicted = self.predict_with_ensemble_weights(image_data['captions'][cur_pair[0]]['automatic_metrics'], ensemble_weights)
-                            second_predicted = self.predict_with_ensemble_weights(image_data['captions'][cur_pair[1]]['automatic_metrics'], ensemble_weights)
+                            first_predicted = self.predict_with_ensemble_weights(first_caption['automatic_metrics'], ensemble_weights)
+                            second_predicted = self.predict_with_ensemble_weights(second_caption['automatic_metrics'], ensemble_weights)
                         else:
-                            first_predicted = image_data['captions'][cur_pair[0]]['automatic_metrics'][metric]
-                            second_predicted = image_data['captions'][cur_pair[1]]['automatic_metrics'][metric]
+                            first_predicted = first_caption['automatic_metrics'][metric]
+                            second_predicted = second_caption['automatic_metrics'][metric]
                         if first_hr > second_hr and first_predicted > second_predicted:
                             metric_to_correct_count[metric] += 1
                         elif first_hr < second_hr and first_predicted < second_predicted:
