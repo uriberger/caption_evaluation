@@ -950,8 +950,8 @@ class HumanRatingDataset:
                 if pair_limit is not None:
                     pairs_for_comparison = random.sample(pairs_for_comparison, pair_limit)
                 for cur_pair in pairs_for_comparison:
-                    first_hr = image_data['captions'][cur_pair[0]]['human_rating']
-                    second_hr = image_data['captions'][cur_pair[1]]['human_rating']
+                    first_hr = image_data['captions'][cur_pair[0]]['human_ratings'][0] # Assuming a single rating
+                    second_hr = image_data['captions'][cur_pair[1]]['human_ratings'][0] # Assuming a single rating
                     if first_hr == second_hr:
                         # Since human ratings are discrete in many cases they are far more likely to be equal, while the metrics
                         # are usually continuous. Ignore such cases
