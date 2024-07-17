@@ -821,7 +821,7 @@ class HumanRatingDataset:
             prediction += weight * metric_res[metric_name]
         return prediction
 
-    def compute_correlation(self, plot=True, ensemble_weights=None, dataset_name=None):
+    def compute_correlation(self, plot=True, ensemble_weights=None, dataset_name=None, rating_column='human_ratings'):
         all_metrics = self.get_all_metrics()
         if ensemble_weights is not None:
             all_metrics.append('ensemble')
@@ -835,7 +835,7 @@ class HumanRatingDataset:
         for dataset_data in dataset_values:
             for image_data in dataset_data.values():
                 for caption_data in image_data['captions']:
-                    for human_rating in caption_data['human_ratings']:
+                    for human_rating in caption_data[rating_column]:
                         for metric in all_metrics:
                             if metric == 'ensemble':
                                 continue
@@ -917,7 +917,7 @@ class HumanRatingDataset:
             #blue_patch = mpatches.Patch(color='blue', label='Lexical similarity')
             red_patch = mpatches.Patch(color='red', label='Transformer based')
             #plt.legend(handles=[blue_patch, red_patch])
-            plt.legend(handles=[red_patch])
+            plt.legend(handles=[red_patch], bbox_to_anchor=(0, -0.2))
             fig.tight_layout()
             plt.savefig('mutual_corr.png')
 
