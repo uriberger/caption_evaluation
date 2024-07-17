@@ -16,24 +16,25 @@ class ThumbDataset(ImagePathRatingDataset):
         with open(human_rating_file_path, 'r') as fp:
             jl = list(fp)
         samples = [json.loads(x) for x in jl]
-        with open('../CLIP_prefix_caption/dataset_coco.json', 'r') as fp:
-            coco_orig_data = json.load(fp)['images']
-        iid2orig_data = {x['cocoid']: x for x in coco_orig_data if x['split'] == 'test'}
+        ref_file = 'THumB/mscoco/mscoco_references.json'
+        with open(ref_file, 'r') as fp:
+            jl = list(fp)
+        refs = [json.loads(x) for x in jl]
+        iid2refs = {int(x['seg_id']): x['refs'] for x in refs}
         for sample in samples:
             image_id = int(sample['image'].split('.')[0].split('_')[-1])
             if image_id not in data:
-                cur_orig_data = iid2orig_data[image_id]
+                dir = '_'.join(sample['image'].split('_')[:2])
                 data[image_id] = {
-                    'references': [x['raw'] for x in cur_orig_data['sentences']],
-                    'file_path': f'/cs/labs/oabend/uriber/datasets/COCO/{cur_orig_data["filepath"]}/{sample["image"]}',
+                    'references': iid2refs[image_id],
+                    'file_path': f'/cs/labs/oabend/uriber/datasets/COCO/{dir}/{sample["image"]}',
                     'captions': []
                 }
-            if len(data[image_id]['captions']) == 4:
-                # Fifth caption in this dataset is one of the references. Following CLIPScore, ignore this candidate
-                continue
             caption = sample['hyp']
             human_rating = sample['human_score']
-            data[image_id]['captions'].append({'caption': caption, 'human_ratings': [human_rating], 'automatic_metrics': {}})
+            precision = sample['P']
+            recall = sample['R']
+            data[image_id]['captions'].append({'caption': caption, 'human_ratings': [human_rating], 'precision': [precision], 'recall': [recall], 'automatic_metrics': {}})
             if len(data[image_id]['captions']) == 5:
                 # If we didn't ignore, tell the ref based metrics to ignore the same reference
                 data[image_id]['captions'][-1]['ignore_refs'] = [np.argmin([distance(caption, ref) for ref in data[image_id]['references']])]
