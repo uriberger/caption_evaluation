@@ -39,24 +39,24 @@ class Pascal50Dataset(ImagePathRatingDataset):
                         'file_path': file_path,
                         'captions': []
                     }
-            cand1 = im_data[1][0]
+            cand1 = str(im_data[1][0])
             type1 = system_ind2type[system_data[im_ind, 0]]
-            cand2 = im_data[2][0]
+            cand2 = str(im_data[2][0])
             type2 = system_ind2type[system_data[im_ind, 1]]
             votes_per_image = 48
             first_won_count = 0
             for pair_ind in range(votes_per_image):
                 conc_ind = im_ind*votes_per_image + pair_ind
                 cur_conc_data = conc_data[0, conc_ind]
-                cur_cand1 = cur_conc_data[1][0][0][0]
+                cur_cand1 = str(cur_conc_data[1][0][0][0])
                 assert cand1 == cur_cand1
-                cur_cand2 = cur_conc_data[2][0][0][0]
+                cur_cand2 = str(cur_conc_data[2][0][0][0])
                 assert cand2 == cur_cand2
                 if cur_conc_data[3][0][0] == 1:
                     first_won_count += 1
                 else:
                     assert cur_conc_data[3][0][0] == -1
-                cur_ref = cur_conc_data[0][0][0][0]
+                cur_ref = str(cur_conc_data[0][0][0][0])
                 if len(data[iid]['references']) < votes_per_image:
                     data[iid]['references'].append(cur_ref)
                 else:
