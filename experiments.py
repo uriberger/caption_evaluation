@@ -97,7 +97,7 @@ def select_predictor_metrics(train_set_name):
 
     all_metrics = train_set.get_all_metrics()
 
-    N = sum([sum([len(image_data['captions']) for image_data in dataset_data.values()]) for dataset_data in train_set.data.values()])
+    N = sum([sum([sum([len(caption_data['human_ratings']) for caption_data in image_data['captions']]) for image_data in dataset_data.values()]) for dataset_data in train_set.data.values()])
     X = np.zeros((N, len(all_metrics)))
     y = np.zeros(N)
 
@@ -105,16 +105,17 @@ def select_predictor_metrics(train_set_name):
     for dataset_data in train_set.data.values():
         for image_data in dataset_data.values():
             for caption_data in image_data['captions']:
-                y[cur_sample_ind] = caption_data['human_rating']
-                for metric_ind, metric in enumerate(all_metrics):
-                    if metric in caption_data['automatic_metrics']:
-                        X[cur_sample_ind, metric_ind] = caption_data['automatic_metrics'][metric]
-                cur_sample_ind += 1
+                for human_rating in caption_data['human_ratings']:
+                    y[cur_sample_ind] = human_rating
+                    for metric_ind, metric in enumerate(all_metrics):
+                        if metric in caption_data['automatic_metrics']:
+                            X[cur_sample_ind, metric_ind] = caption_data['automatic_metrics'][metric]
+                    cur_sample_ind += 1
 
     reg = LinearRegression()
     res = {}
     for direction in ['forward', 'backward']:
-        sfs = SequentialFeatureSelector(reg, direction=direction)
+        sfs = SequentialFeatureSelector(reg, direction=direction, tol=0.0001)
         sfs.fit(X, y)
         support = sfs.get_support()
         dir_metrics = [all_metrics[i] for i in range(len(all_metrics)) if support[i]]
