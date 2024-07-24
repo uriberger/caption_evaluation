@@ -13,3 +13,5 @@ pacscore
 THumB
 *.csv
 slurm-*.out
+pyCIDErConsensus
+*~
