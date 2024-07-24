@@ -1,42 +1,18 @@
-from collections import OrderedDict
 import scipy.stats as stats
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import os
-import json
 import sys
-sys.path.append('NNEval')
-import subprocess
-import shutil
 import random
 import pickle
-import math
 import torch
 import torch.nn as nn
 from sklearn.feature_selection import SequentialFeatureSelector
 from sklearn.linear_model import LinearRegression
 import statistics
 from tqdm import tqdm
-from PIL import Image
 import csv
-
-class_to_pos_tag = [
-    # Nouns:
-    ['NN', 'NNS', 'NNP', 'WP', 'NNPS', 'WP$'],
-    # Verbs:
-    ['VBD', 'VB', 'VBP', 'VBG', 'VBZ', 'VBN', 'VERB'],
-    # Adjectivs:
-    ['JJ', 'JJR', 'JJS'],
-    # Others:
-    ['<unk>', 'UH', ',', 'PRP', 'PRP$', 'RB', '.', 'DT', 'O', 'IN', 'CD', 'WRB', 'WDT',
-     'CC', 'TO', 'MD', ':', 'RP', 'EX', 'FW', 'XX', 'HYPH', 'POS', 'RBR', 'PDT', 'RBS',
-     'AFX', '-LRB-', '-RRB-', '``', "''", 'LS', '$', 'SYM', 'ADD', '*', 'NFP']
-]
-pos_tag_to_class = {}
-for class_ind in range(len(class_to_pos_tag)):
-    for pos_tag in class_to_pos_tag[class_ind]:
-        pos_tag_to_class[pos_tag] = class_ind
 
 class HumanRatingDataset:
     def __init__(self):
@@ -57,41 +33,75 @@ class HumanRatingDataset:
             self.data = pickle.load(fp)
     
     def collect_data(self):
+        # Each dataset implements its own data collection
         return
     
-    def get_image(self, dataset_name, image_data):
+    def get_image(self, split_name, image_data):
+        # Get image object given the image data and split name
         return
     
-    def get_file_path(self, dataset_name, image_data):
+    def get_file_path(self, split_name, image_data):
+        # Get image path given the image data and split name
         return
     
     def clean_temp_files(self):
         return
+    
+    def get_data_list(self, split_name, img_obj=False):
+        image_ids = []
+        image_paths = []
+        images = []
+        caption_inds = []
+        references = []
+        candidates = []
+        for image_id, image_data in self.data[split_name].items():
+            for caption_ind, caption_data in enumerate(image_data['captions']):
+                cur_refs = image_data['references']
+                cur_cand = caption_data['caption']
+                references.append(cur_refs)
+                candidates.append(cur_cand)
+                file_path = self.get_file_path(split_name, image_data)
+                image_paths.append(file_path)
+                image_ids.append(image_id)
+                caption_inds.append(caption_ind)
+                if img_obj:
+                    images.append(self.get_image(split_name, image_data))
 
-    def compute_metrics(self):
-        for dataset in self.data.keys():
-            self.compute_metrics_for_dataset(dataset)
+        if img_obj:
+            return image_ids, images, caption_inds, references, candidates
+        else:
+            return image_ids, image_paths, caption_inds, references, candidates
+    
+    def log_scores(self, split_name, image_ids, caption_inds, metric_name, scores):
+        for image_id, caption_ind, score in zip(image_ids, caption_inds, scores):
+            self.data[split_name][image_id]['captions'][caption_ind]['automatic_metrics'][metric_name] = float(score)
 
-    def compute_metrics_for_dataset(self, dataset_name):
-        self.compute_coco_metrics(dataset_name)
-        self.compute_huggingface_metrics(dataset_name)
-        self.compute_sentence_level_huggingface_metrics(dataset_name)
-        self.compute_sentence_level_nltk_metrics(dataset_name)
-        self.compute_clipscore(dataset_name)
-        self.compute_smurf(dataset_name)
-        self.compute_wmd(dataset_name)
-        self.compute_content_overlap_metrics(dataset_name)
+    def compute_metrics(self, compute_clip_image_score=False):
+        for split in self.data.keys():
+            self.compute_metrics_for_split(split, compute_clip_image_score)
 
-    def compute_coco_metrics(self, dataset_name):
+    def compute_metrics_for_split(self, split_name, compute_clip_image_score):
+        self.compute_coco_metrics(split_name)
+        self.compute_clipscore(split_name)
+        self.compute_content_overlap_metrics(split_name)
+        self.compute_blip2(split_name)
+        self.compute_polos(split_name)
+        self.compute_mpnet_score(split_name)
+        self.compute_pacscore(split_name)
+        if compute_clip_image_score:
+            self.compute_clip_image_score(split_name)
+
+    def compute_coco_metrics(self, split_name):
         from pycocoevalcap.tokenizer.ptbtokenizer import PTBTokenizer
         from pycocoevalcap.bleu.bleu import Bleu
         from pycocoevalcap.meteor.meteor import Meteor
         from pycocoevalcap.rouge.rouge import Rouge
         from pycocoevalcap.cider.cider import Cider
         from pycocoevalcap.spice.spice import Spice
+        from collections import OrderedDict
 
         # Some metrics are not compatabile with large image ids; map to small ones
-        new_to_orig_image_id = list(self.data[dataset_name].keys())
+        new_to_orig_image_id = list(self.data[split_name].keys())
         orig_to_new_image_id = {new_to_orig_image_id[i]: i for i in range(len(new_to_orig_image_id))}
         image_num = len(new_to_orig_image_id)
         digit_num = len(str(image_num))
@@ -102,13 +112,10 @@ class HumanRatingDataset:
         references = {}
         candidates = {}
         for orig_image_id in new_to_orig_image_id:
-            image_data = self.data[dataset_name][orig_image_id]
+            image_data = self.data[split_name][orig_image_id]
             for caption_ind, caption_data in enumerate(image_data['captions']):
                 new_id = orig_to_new_id(orig_image_id, caption_ind)
-                ignore_refs = []
-                if 'ignore_refs' in caption_data:
-                    ignore_refs = caption_data['ignore_refs']
-                references[new_id] = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
+                references[new_id] = image_data['references']
                 candidates[new_id] = [caption_data['caption']]
 
         # Tokenize
@@ -164,58 +171,9 @@ class HumanRatingDataset:
         for metric_name, scores in metric_name_to_scores.items():
             for id, score in zip(ref_ids, scores):
                 orig_image_id, caption_id = new_to_orig_id(id)
-                self.data[dataset_name][orig_image_id]['captions'][caption_id]['automatic_metrics'][metric_name] = score
-
-    def compute_huggingface_metrics(self, dataset_name):
-        from evaluate import load
-
-        # Collect references and candidates
-        references = []
-        candidates = []
-        image_id_caption_ind_pairs = []
-        for image_id, image_data in self.data[dataset_name].items():
-            for caption_ind, caption_data in enumerate(image_data['captions']):
-                image_id_caption_ind_pairs.append((image_id, caption_ind))
-                ignore_refs = []
-                if 'ignore_refs' in caption_data:
-                    ignore_refs = caption_data['ignore_refs']
-                references.append([image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs])
-                candidates.append(caption_data['caption'])
-
-        # Now, compute metrics
-        metric_name_to_scores = {}
-
-        ####BERTScore###
-        bertscore = load("bertscore")
-        results = bertscore.compute(predictions=candidates, references=references, lang='en')
-        metric_name_to_scores['BERTScore'] = results['f1']
-
-        # Log scores
-        for metric_name, scores in metric_name_to_scores.items():
-            for sample_info, score in zip(image_id_caption_ind_pairs, scores):
-                image_id, caption_id = sample_info
-                self.data[dataset_name][image_id]['captions'][caption_id]['automatic_metrics'][metric_name] = score
-
-    def compute_sentence_level_nltk_metrics(self, dataset_name):
-        import nltk.translate.nist_score as nist_score
-
-        # NIST
-        for image_id, image_data in self.data[dataset_name].items():
-            for caption_ind, caption_data in enumerate(image_data['captions']):
-                ignore_refs = []
-                if 'ignore_refs' in caption_data:
-                    ignore_refs = caption_data['ignore_refs']
-                references = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
-                candidate = caption_data['caption']
-                self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['NIST'] = nist_score.sentence_nist(hypothesis=candidate, references = references)
+                self.data[split_name][orig_image_id]['captions'][caption_id]['automatic_metrics'][metric_name] = score
     
-    def get_candidate_num_per_image(self, dataset_name):
-        return max([len(image_data['captions']) for image_data in self.data[dataset_name].values()])
-    
-    def get_file_name2iid_func(self, dataset_name):
-        return
-    
-    def compute_clipscore(self, dataset_name):
+    def compute_clipscore(self, split_name):
         import clip
         sys.path.append('clipscore')
         import clipscore
@@ -224,290 +182,18 @@ class HumanRatingDataset:
         model, transform = clip.load("ViT-B/32", device=device, jit=False)
         model.eval()
 
-        images = []
-        refs = []
-        candidates = []
-        image_id_caption_ind_pairs = []
-
-        for image_id, image_data in tqdm(self.data[dataset_name].items()):
-            file_path = self.get_file_path(dataset_name, image_data)
-            for caption_ind, caption_data in enumerate(image_data['captions']):
-                image_id_caption_ind_pairs.append((image_id, caption_ind))
-                images.append(file_path)
-                ignore_refs = []
-                if 'ignore_refs' in caption_data:
-                    ignore_refs = caption_data['ignore_refs']
-                cur_refs = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
-                refs.append([' '.join(gt.split()) for gt in cur_refs])
-                candidates.append(' '.join(caption_data['caption'].split()))
+        image_ids, image_paths, caption_inds, references, candidates = self.get_data_list(split_name)
         
-        image_feats = clipscore.extract_all_images(images, model, device, batch_size=64, num_workers=8)
+        image_feats = clipscore.extract_all_images(image_paths, model, device, batch_size=64, num_workers=8)
         _, per_instance_image_text, candidate_feats = clipscore.get_clip_score(model, image_feats, candidates, device)
-        _, per_instance_text_text = clipscore.get_refonlyclipscore(model, refs, candidate_feats, device)
+        _, per_instance_text_text = clipscore.get_refonlyclipscore(model, references, candidate_feats, device)
         refclipscores = 2 * per_instance_image_text * per_instance_text_text / (per_instance_image_text + per_instance_text_text)
 
-        for sample_entry, clip_score, ref_clip_score in zip(image_id_caption_ind_pairs, per_instance_image_text, refclipscores):
-            image_id, caption_ind = sample_entry
-            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['CLIPScore'] = float(clip_score)
-            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['RefCLIPScore'] = float(ref_clip_score)
+        self.log_scores(split_name, image_ids, caption_inds, 'CLIPScore', per_instance_image_text)
+        self.log_scores(split_name, image_ids, caption_inds, 'RefCLIPScore', refclipscores)
     
-    def compute_sentence_level_huggingface_metrics(self, dataset_name):
-        ter = load('ter')
-
-        for image_id, image_data in self.data[dataset_name].items():
-            for caption_ind, caption_data in enumerate(image_data['captions']):
-                ignore_refs = []
-                if 'ignore_refs' in caption_data:
-                    ignore_refs = caption_data['ignore_refs']
-                references = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
-                candidate = caption_data['caption']
-                self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['TER'] = (-1)*ter.compute(predictions=[candidate], references=[references])['score']
-
-    def compute_smurf(self, dataset_name):
-        from SMURF.smurf.eval import smurf_eval_captions
-
-        image_id_caption_ind_pairs = []
-        references = []
-        candidates = []
-        for image_id, image_data in self.data[dataset_name].items():
-            for caption_ind, caption_data in enumerate(image_data['captions']):
-                ignore_refs = []
-                if 'ignore_refs' in caption_data:
-                    ignore_refs = caption_data['ignore_refs']
-                cur_refs = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
-                cur_cand = caption_data['caption']
-                references.append(cur_refs)
-                candidates.append(cur_cand)
-                image_id_caption_ind_pairs.append((image_id, caption_ind))
-
-        meta_scorer = smurf_eval_captions(references, candidates, fuse=True)
-        os.chdir('SMURF')
-        scores = meta_scorer.evaluate()
-        os.chdir('..')
-        for sample_entry, score in zip(image_id_caption_ind_pairs, scores['SMURF']):
-            image_id, caption_ind = sample_entry
-            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['SMURF'] = score
-    
-    def compute_wmd(self, dataset_name, agg_method='mean'):
-        import gensim.downloader as api
-        from nltk.corpus import stopwords
-        from nltk import download
-
-        model = api.load('word2vec-google-news-300')
-        _ = download('stopwords')
-        stop_words = stopwords.words('english')
-
-        def preprocess(sentence):
-            return [w for w in sentence.lower().split() if w not in stop_words]
-        
-        for image_id, image_data in self.data[dataset_name].items():
-            for caption_ind, caption_data in enumerate(image_data['captions']):
-                ignore_refs = []
-                if 'ignore_refs' in caption_data:
-                    ignore_refs = caption_data['ignore_refs']
-                references = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
-                candidate = caption_data['caption']
-
-                references = [preprocess(x) for x in references]
-                candidate = preprocess(candidate)
-                similarities = [(-1)*model.wmdistance(candidate, x) for x in references]
-                if agg_method == 'mean':
-                    similarity = statistics.mean(similarities)
-                elif agg_method == 'max':
-                    similarity = max(similarities)
-                if similarity == -math.inf:
-                    similarity = 0
-                self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['WMD'] = similarity
-    
-    def compute_nubia(self, dataset_name, agg_method):
-        generated_scores_file_name = f'{dataset_name}_nubia_scores.pkl'
-        assert os.path.isfile(generated_scores_file_name)
-        with open(generated_scores_file_name, 'rb') as fp:
-            data = pickle.load(fp)
-        for image_id, image_scores in data.items():
-            for caption_ind, scores in enumerate(image_scores):
-                if agg_method == 'mean':
-                    score = statistics.mean(scores)
-                elif agg_method == 'max':
-                    score = max(scores)
-                self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['nubia'] = score
-
-    def compute_umic(self, dataset_name):
-        # The umic metrics require a mapping from image id to candidate. Since we have multiple candidates per image, we need to run it multiple times
-        N = self.get_candidate_num_per_image(dataset_name)
-        for caption_ind in range(N):
-            # First, create a temporary json file with image file names and caption, to be used by umic
-            temp_cands_file_name = f'temp_cands_{dataset_name}.json'
-            temp_res_file = f'temp_umic.json'
-            temp_txt_db_dir = f'temp_txt_db'
-
-            candidates = []
-            for image_data in self.data[dataset_name].values():
-                caption_data = image_data['captions'][caption_ind]
-                cur_candidate = caption_data['caption']
-                file_path = self.get_file_path(dataset_name, image_data)
-                file_name = file_path.split('/')[-1].split('.')[0]
-                candidates.append({'caption': cur_candidate, 'imgid': file_name})
-
-            with open(temp_cands_file_name, 'w') as fp:
-                fp.write(json.dumps(candidates))
-
-            if dataset_name.startswith('flickr'):
-                img_type = dataset_name
-            elif dataset_name.startswith('coco'):
-                img_type = 'coco_val2014'
-            else:
-                assert False
-            _ = subprocess.call(['UMIC/venv/bin/python', 'UMIC/make_txt_db.py',
-                                 '--input_file', temp_cands_file_name,
-                                 '--img_type', img_type,
-                                 '--out_dir', temp_txt_db_dir])
-            
-            _ = subprocess.call(['UMIC/venv/bin/python', 'UMIC/compute_metric.py',
-                                 '--img_db', img_type,
-                                 '--txt_db', temp_txt_db_dir,
-                                 '--out_file', temp_res_file])
-            
-            # Log results
-            with open(temp_res_file, 'r') as fp:
-                results = json.load(fp)
-
-            file_name2iid = self.get_file_name2iid_func(dataset_name)
-            for file_name, score_dict in results.items():
-                image_id = file_name2iid(file_name)
-                for metric, score in score_dict.items():
-                    self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics'][metric] = score
-
-            # Now, delete the temporary files
-            os.remove(temp_cands_file_name)
-            os.remove(temp_res_file)
-            shutil.rmtree(temp_txt_db_dir)
-            self.clean_temp_files()
-    
-    def compute_nneval(self, dataset_name):
-        import gensim
-        import NNEval.configuration_nneval as configuration
-        from NNEval.nn_classify_model_nneval import build_model
-        import tensorflow as tf
-
-        # Some metrics are not compatabile with large image ids; map to small ones
-        new_to_orig_image_id = list(self.data[dataset_name].keys())
-        orig_to_new_image_id = {new_to_orig_image_id[i]: i for i in range(len(new_to_orig_image_id))}
-        image_num = len(new_to_orig_image_id)
-        digit_num = len(str(image_num))
-        orig_to_new_id = lambda image_id, caption_ind: caption_ind*10**(digit_num) + orig_to_new_image_id[image_id]
-        new_to_orig_id = lambda new_id: (new_to_orig_image_id[new_id % 10**(digit_num)], new_id // 10**(digit_num))
-
-        # Collect references and candidates
-        references = {}
-        candidates = {}
-        for orig_image_id in new_to_orig_image_id:
-            image_data = self.data[dataset_name][orig_image_id]
-            for caption_ind, caption_data in enumerate(image_data['captions']):
-                new_id = orig_to_new_id(orig_image_id, caption_ind)
-                ignore_refs = []
-                if 'ignore_refs' in caption_data:
-                    ignore_refs = caption_data['ignore_refs']
-                references[new_id] = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
-                candidates[new_id] = [caption_data['caption']]
-
-        # Tokenize
-        tokenizer = PTBTokenizer()
-        ref = tokenizer.tokenize({x[0]: [{'caption': y} for y in x[1]] for x in references.items()})
-        hypo = tokenizer.tokenize({x[0]: [{'caption': y} for y in x[1]] for x in candidates.items()})
-    
-        assert(hypo.keys() == ref.keys())
-        ImgId=hypo.keys() # for ensuring that all metrics get the same keys and return values in the same order
-        stop_words = stopwords.words('english')
-        embeddings = gensim.models.KeyedVectors.load_word2vec_format( "NNEval/GoogleNews-vectors-negative300.bin" , binary=True ) 
-
-        _, blscores=Bleu(4).compute_score(ref,hypo)
-        #Rogue_L,Rogue_Lscores= Rouge().compute_score(ref,hypo,ImgId)
-        _, meteor_scores = Meteor().compute_score(ref,hypo)
-        
-        wmd_model = embeddings
-        wmd_model.init_sims(replace=True)
-        wmd_score=[]
-        for id_ref in ImgId:
-            c1=hypo[id_ref][0]
-            c1= c1.lower().split()
-            c1 = [w_ for w_ in c1 if w_ not in stop_words]    
-            distance=[]
-            for refs in ref[id_ref]:
-                c2=refs
-                c2= c2.lower().split()
-                c2 = [w_ for w_ in c2 if w_ not in stop_words]
-                temp= wmd_model.wmdistance(c1, c2)
-                if (np.isinf(temp)):
-                    temp=1000
-                distance.append(temp)
-            wmd_dis=min(distance)
-            wmd_similarity=np.exp(-wmd_dis)
-            wmd_score.append(wmd_similarity)
-    
-        CIDer=Cider()
-        _, cider_scores=CIDer.compute_score(ref,hypo)
-
-        _, spice_scores = Spice().compute_score(ref,hypo)
-
-        features={}
-        for i,ids in enumerate(ImgId):     
-            features[ids]=[
-                            meteor_scores[i],
-                            wmd_score[i],
-                            blscores[0][i],
-                            blscores[1][i],
-                            blscores[2][i],
-                            blscores[3][i],
-                            spice_scores[i],
-                            cider_scores[i]/10]
-            
-        model_config = configuration.ModelConfig()
-
-        def _step_test(sess, model, features):
-            nn_score= sess.run([model['nn_score']],  feed_dict={model['sentence_features']: features})            
-            return nn_score
-        
-        def process_scores(sc,BATCH_SIZE_INFERENCE):
-            score_list=[]
-            for i in range(BATCH_SIZE_INFERENCE):
-                score_list.append(sc[0][i][1])
-            return score_list
-
-        g = tf.Graph()
-        with g.as_default():
-            model = build_model(model_config)
-            init = tf.global_variables_initializer()
-            sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True))
-            checking=[1110] # model number
-            with tf.device('/gpu:1'): 
-                sess.run(init)
-                for s in checking:
-                    model['saver'].restore(sess, os.path.join(directory,'nn_classify_checkpoint{}.ckpt'.format(s)))
-                    for i in range(1):
-                        sc = _step_test(sess,model,features) 
-                    scores=process_scores(sc, len(features))
-                sess.close()
-
-    def compute_pacscore(self, dataset_name):
-        image_ids = []
-        image_paths = []
-        caption_inds = []
-        references = []
-        candidates = []
-        for image_id, image_data in self.data[dataset_name].items():
-            for caption_ind, caption_data in enumerate(image_data['captions']):
-                ignore_refs = []
-                if 'ignore_refs' in caption_data:
-                    ignore_refs = caption_data['ignore_refs']
-                cur_refs = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
-                cur_cand = caption_data['caption']
-                references.append(cur_refs)
-                candidates.append(cur_cand)
-                file_path = self.get_file_path(dataset_name, image_data)
-                image_paths.append(file_path)
-                image_ids.append(image_id)
-                caption_inds.append(caption_ind)
+    def compute_pacscore(self, split_name):
+        image_ids, image_paths, caption_inds, references, candidates = self.get_data_list(split_name)
 
         gen = {}
         gts = {}
@@ -542,53 +228,28 @@ class HumanRatingDataset:
         _, per_instance_text_text = RefPACScore(model, gts_cs, candidate_feats, device, torch.tensor(len_candidates))
         refpac_scores = 2 * pac_scores * per_instance_text_text / (pac_scores + per_instance_text_text)
 
-        for image_id, caption_ind, pac_score, refpac_score in zip(image_ids, caption_inds, pac_scores, refpac_scores):
-            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['PACScore'] = pac_score
-            self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['RefPACScore'] = refpac_score
-
+        self.log_scores(split_name, image_ids, caption_inds, 'PACScore', pac_scores)
+        self.log_scores(split_name, image_ids, caption_inds, 'RefPACScore', refpac_scores)
+        
         self.clean_temp_files()
     
-    def compute_content_overlap_metrics(self, dataset_name):
+    def compute_content_overlap_metrics(self, split_name):
         from content_score import compute_and_add_content_recall
 
-        # Collect references and candidates
-        samples = []
-        image_id_caption_ind_pairs = []
-        for image_id, image_data in self.data[dataset_name].items():
-            for caption_ind, caption_data in enumerate(image_data['captions']):
-                image_id_caption_ind_pairs.append((image_id, caption_ind))
-                ignore_refs = []
-                if 'ignore_refs' in caption_data:
-                    ignore_refs = caption_data['ignore_refs']
-                candidate = caption_data['caption']
-                references = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
-                samples.append({'candidate_summary': candidate, 'refs': references})
+        image_ids, _, caption_inds, references, candidates = self.get_data_list(split_name)
+        samples = [{'candidate_summary': candidate, 'refs': refs} for candidate, refs in zip(candidates, references)]
 
         res = compute_and_add_content_recall(samples, 'refs')
-
-        for sample_info, cur_res in zip(image_id_caption_ind_pairs, res):
-            image_id, caption_id = sample_info
-            self.data[dataset_name][image_id]['captions'][caption_id]['automatic_metrics']['Exact noun overlap'] = cur_res['scores']['content_recall']['candidate_summary_noun_recall']
-            self.data[dataset_name][image_id]['captions'][caption_id]['automatic_metrics']['Fuzzy noun overlap'] = cur_res['scores']['content_recall']['candidate_summary_noun_fuzzy_recall']
-            self.data[dataset_name][image_id]['captions'][caption_id]['automatic_metrics']['Exact verb overlap'] = cur_res['scores']['content_recall']['candidate_summary_verb_recall']
-            self.data[dataset_name][image_id]['captions'][caption_id]['automatic_metrics']['Fuzzy verb overlap'] = cur_res['scores']['content_recall']['candidate_summary_verb_fuzzy_recall']
+        self.log_scores(split_name, image_ids, caption_inds, 'Exact noun overlap', [x['scores']['content_recall']['candidate_summary_noun_recall'] for x in res])
+        self.log_scores(split_name, image_ids, caption_inds, 'Fuzzy noun overlap', [x['scores']['content_recall']['candidate_summary_noun_fuzzy_recall'] for x in res])
+        self.log_scores(split_name, image_ids, caption_inds, 'Exact verb overlap', [x['scores']['content_recall']['candidate_summary_verb_recall'] for x in res])
+        self.log_scores(split_name, image_ids, caption_inds, 'Fuzzy verb overlap', [x['scores']['content_recall']['candidate_summary_verb_fuzzy_recall'] for x in res])
     
-    def compute_polos(self, dataset_name):
+    def compute_polos(self, split_name):
         from polos.models import download_model, load_checkpoint
 
-        polos_data = []
-        image_id_caption_ind_pairs = []
-        for image_id, image_data in self.data[dataset_name].items():
-            for caption_ind, caption_data in enumerate(image_data['captions']):
-                image_id_caption_ind_pairs.append((image_id, caption_ind))
-                ignore_refs = []
-                if 'ignore_refs' in caption_data:
-                    ignore_refs = caption_data['ignore_refs']
-                polos_data.append({
-                    'img': self.get_image(dataset_name, image_data),
-                    'mt': caption_data['caption'],
-                    'refs': [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
-                    })
+        image_ids, images, caption_inds, references, candidates = self.get_data_list(split_name, img_obj=True)
+        polos_data = [{'img': images[i], 'mt': candidates[i], 'refs': references[i]} for i in range(len(images))]
 
         print('Loading model...', flush=True)
         model_path = download_model("polos")
@@ -597,15 +258,11 @@ class HumanRatingDataset:
         print('Computing scores...', flush=True)
         _, scores = model.predict(polos_data, batch_size=8, cuda=True)
 
-        # Log scores
-        for sample_info, score in zip(image_id_caption_ind_pairs, scores):
-            image_id, caption_id = sample_info
-            self.data[dataset_name][image_id]['captions'][caption_id]['automatic_metrics']['polos'] = score
+        self.log_scores(split_name, image_ids, caption_inds, 'polos', scores)
 
-    def compute_clip_image_score(self, dataset_name):
+    def compute_clip_image_score(self, split_name):
         from diffusers import AutoPipelineForText2Image
         import clip
-        from PIL import Image
 
         device = torch.device('cuda')
         pipeline_text2image = AutoPipelineForText2Image.from_pretrained(
@@ -616,191 +273,82 @@ class HumanRatingDataset:
         cos_sim = nn.CosineSimilarity()
 
         # Collect references and candidates
-        temp_file = f'{self.get_name()}_{dataset_name}_tmp.pkl'
+        temp_file = f'{self.get_name()}_{split_name}_tmp.pkl'
         if os.path.isfile(temp_file):
             print(f'Loading data from file: {temp_file}', flush=True)
             with open(temp_file, 'rb') as fp:
                 self.data = pickle.load(fp)
         count = 0
+        image_ids, images, caption_inds, _, candidates = self.get_data_list(split_name, img_obj=True)
+        prev_image_id = None
+        scores = []
         with torch.no_grad():
-            for image_id, image_data in tqdm(self.data[dataset_name].items()):
-                if count % 100 == 0:
-                    with open(temp_file, 'wb') as fp:
-                        pickle.dump(self.data, fp)
-                count += 1
-                if 'CLIPImageScore' in image_data['captions'][0]['automatic_metrics']:
+            for image_id, orig_image, caption_ind, candidate in tqdm(zip(image_ids, images, caption_inds, candidates)):
+                if image_id != prev_image_id:
+                    if count % 100 == 0:
+                        with open(temp_file, 'wb') as fp:
+                            pickle.dump(self.data, fp)
+                    count += 1
+                    orig_image = preprocess(orig_image).unsqueeze(0).to(device)
+                    orig_image_features = clip_model.encode_image(orig_image)
+                if 'CLIPImageScore' in self.data[split_name][image_id]['captions'][caption_ind]['automatic_metrics']:
                     continue
-                orig_image = self.get_image(dataset_name, image_data)
-                orig_image = preprocess(orig_image).unsqueeze(0).to(device)
-                orig_image_features = clip_model.encode_image(orig_image)
-                for caption_ind, caption_data in enumerate(image_data['captions']):
-                    candidate = caption_data['caption']
-                    reconstructed_image = pipeline_text2image(prompt=candidate).images[0]
-                    reconstructed_image = preprocess(reconstructed_image).unsqueeze(0).to(device)
-                    reconstructed_image_features = clip_model.encode_image(reconstructed_image)
-                    score = cos_sim(orig_image_features, reconstructed_image_features).item()
-                    self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['CLIPImageScore'] = score
+                reconstructed_image = pipeline_text2image(prompt=candidate).images[0]
+                reconstructed_image = preprocess(reconstructed_image).unsqueeze(0).to(device)
+                reconstructed_image_features = clip_model.encode_image(reconstructed_image)
+                score = cos_sim(orig_image_features, reconstructed_image_features).item()
+                scores.append(score)
+
+        self.log_scores(split_name, image_ids, caption_inds, 'CLIPImageScore', scores)
 
     def numpy_cosine_similarity(self, a, b):
         return np.dot(a, b)/(np.linalg.norm(a)*np.linalg.norm(b))
     
-    def compute_mpnet_score(self, dataset_name, agg_method='mean'):
+    def compute_mpnet_score(self, split_name, agg_method='mean'):
         from sentence_transformers import SentenceTransformer
 
         model = SentenceTransformer('all-mpnet-base-v2')
         model.eval()
 
-        for image_id, image_data in self.data[dataset_name].items():
-            for caption_ind, caption_data in enumerate(image_data['captions']):
-                ignore_refs = []
-                if 'ignore_refs' in caption_data:
-                    ignore_refs = caption_data['ignore_refs']
-                candidate = caption_data['caption']
-                references = [image_data['references'][i] for i in range(len(image_data['references'])) if i not in ignore_refs]
-                with torch.no_grad():
-                    cand_embedding = model.encode(candidate)
-                    ref_embeddings = [model.encode(ref) for ref in references]
-                scores = [self.numpy_cosine_similarity(cand_embedding, ref_embedding).item() for ref_embedding in ref_embeddings]
-                if agg_method == 'mean':
-                    score = statistics.mean(scores)
-                elif agg_method == 'max':
-                    score = max(scores)
-                self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['MPNetScore'] = score
+        image_ids, _, caption_inds, references, candidates = self.get_data_list(split_name)
+        scores = []
+        for candidate, refs in zip(candidates, references):
+            with torch.no_grad():
+                cand_embedding = model.encode(candidate)
+                ref_embeddings = [model.encode(ref) for ref in refs]
+            cur_scores = [self.numpy_cosine_similarity(cand_embedding, ref_embedding).item() for ref_embedding in ref_embeddings]
+            if agg_method == 'mean':
+                score = statistics.mean(cur_scores)
+            elif agg_method == 'max':
+                score = max(cur_scores)
+            scores.append(score)
+        
+        self.log_scores(split_name, image_ids, caption_inds, 'MPNetScore', scores)
 
-    def compute_blip2(self, dataset_name):
+    def compute_blip2(self, split_name):
         from lavis.models import load_model_and_preprocess
         import imageio.v2 as imageio
 
         device = torch.device('cuda')
         model, vis_processors, text_processors = load_model_and_preprocess("blip2_image_text_matching", "pretrain", device=device, is_eval=True)
 
-        for image_id, image_data in tqdm(self.data[dataset_name].items()):
-            with torch.no_grad():
-                file_path = self.get_file_path(dataset_name, image_data)
-                im = imageio.imread(file_path)
-                if len(im.shape) != 3 or im.shape[2] != 3:
-                    continue
-                raw_image = self.get_image(dataset_name, image_data)
-                img = vis_processors["eval"](raw_image).unsqueeze(0).to(device)
-                for caption_ind, caption_data in enumerate(image_data['captions']):
-                    caption = caption_data['caption']
-                    txt = text_processors["eval"](caption)
-                    score = model({"image": img, "text_input": txt}, match_head='itc')
-                    self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['BLIP2Score'] = score.item()
-
-    def compute_retrieval_score(self, dataset_name):
-        system_num = self.get_candidate_num_per_image(dataset_name)
-        assert len([x for x in image_data.values() if len([]) != system_num]) == 0
-        import clip
-        from PIL import Image
-
-        device = torch.device('cuda')
-        clip_model, preprocess = clip.load("ViT-B/32", device=device)
-
-        image_embeds = {}
-        text_embeds = {}
-        data_back_ref = []
-
-        # Collect references and candidates
+        image_ids, images, caption_inds, _, candidates = self.get_data_list(split_name, img_obj=True)
+        prev_image_id = None
+        scores = []
         with torch.no_grad():
-            for image_id, image_data in tqdm(self.data[dataset_name].items()):
-                image = self.get_image(dataset_name, image_data)
-                image = preprocess(image).unsqueeze(0).to(device)
-                image_features = clip_model.encode_image(image)
-                image_embed_ind = len(image_embeds)
-                image_embeds[image_embed_ind] = (image_features, [])
-                for caption_ind, caption_data in enumerate(image_data['captions']):
-                    candidate = caption_data['caption']
-                    text = clip.tokenize(candidate).to(device)
-                    text_features = clip_model.encode_text(text)
-                    text_embed_ind = len(text_embeds)
-                    text_embeds[text_embed_ind] = (text_features, image_embed_ind)
-                    image_embeds[image_embed_ind][1].append(text_embed_ind)
-                    data_back_ref.append((image_id, caption_ind, image_embed_ind, text_embed_ind))
+            for image_id, raw_image, caption in zip(image_ids, images, candidates):
+                if image_id != prev_image_id:
+                    # Do this check somehow
+                    # im = imageio.imread(file_path)
+                    # if len(im.shape) != 3 or im.shape[2] != 3:
+                    #     continue
+                    img = vis_processors["eval"](raw_image).unsqueeze(0).to(device)
+                    prev_image_id = image_id
+                txt = text_processors["eval"](caption)
+                score = model({"image": img, "text_input": txt}, match_head='itc')
+                scores.append(score)
 
-        image_embeds_list = sorted(list(image_embeds.items()), key=lambda x:x[0])
-        image_embeds_only = [x[1][0] for x in image_embeds_list]
-        image_mat = torch.cat(image_embeds_only)
-        text_embeds_list = sorted(list(text_embeds.items()), key=lambda x:x[0])
-        text_embeds_only = [x[1][0] for x in text_embeds_list]
-        text_mat = torch.cat(text_embeds_only)
-        
-        sim_mat = image_mat.matmul(text_mat.transpose(1, 0))
-        image_sim_sorted = torch.sort(sim_mat, dim=1).values
-        text_sim_sorted = torch.sort(sim_mat, dim=0).values
-        system_to_correct = {i: {'image_r@1': 0, 'image_r@5': 0, 'text_r@10': 0, 'text_r@1': 0, 'text_r@5': 0, 'text_r@10': 0} for i in range(system_num)}
-        system_to_count = {i: {'image_r@1': 0, 'image_r@5': 0, 'text_r@10': 0, 'text_r@1': 0, 'text_r@5': 0, 'text_r@10': 0} for i in range(system_num)}
-        # Need to think how to implement this
-
-    def compute_mplug_score(self, dataset_name):
-        sys.path.append('mPLUG')
-        from mPLUG.models.model_retrieval_mplug import MPLUG
-        from mPLUG.models.tokenization_bert import BertTokenizer
-        from mPLUG.models.vit import resize_pos_embed
-        from ruamel.yaml import YAML
-        from torchvision import transforms
-        import torch.nn.functional as F
-        import torch.nn as nn
-
-        device = torch.device('cuda')
-
-        # Config
-        yaml = YAML(typ='rt')
-        config = yaml.load(open('mPLUG/configs/retrieval_flickr30k_mplug_large.yaml', 'r'))
-        config['text_encoder'] = 'bert-base-uncased'
-        config['bert_config'] = 'mPLUG/configs/config_bert.json'
-
-        # Tokenizer
-        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-
-        # Model
-        model = MPLUG(config=config, tokenizer=tokenizer).to(device)
-        model.eval()
-
-        # Checkpoint
-        checkpoint = torch.load('../AliceMind/mPLUG/mplug_large.pth', map_location='cpu')
-        state_dict = checkpoint['model']
-        num_patches = int(config["image_res"] * config["image_res"] / (14 * 14))
-        pos_embed = nn.Parameter(torch.zeros(num_patches + 1, 768).float())
-        pos_embed = resize_pos_embed(state_dict['visual_encoder.visual.positional_embedding'].unsqueeze(0), pos_embed.unsqueeze(0))
-        state_dict['visual_encoder.visual.positional_embedding'] = pos_embed
-        pos_embed = nn.Parameter(torch.zeros(num_patches + 1, 768).float())
-        pos_embed = resize_pos_embed(state_dict['visual_encoder_m.visual.positional_embedding'].unsqueeze(0), pos_embed.unsqueeze(0))
-        state_dict['visual_encoder_m.visual.positional_embedding'] = pos_embed
-
-        for key in list(state_dict.keys()):
-            if ('fusion' in key or 'bert' in key) and 'decode' not in key:
-                encoder_key = key.replace('fusion.', '').replace('bert.', '')
-                state_dict[encoder_key] = state_dict[key]
-                del state_dict[key]
-
-        _ = model.load_state_dict(state_dict, strict=False)
-
-        # Preprocess images
-        normalize = transforms.Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711))
-        test_transform = transforms.Compose([
-            transforms.Resize((config['image_res'],config['image_res']), interpolation=Image.BICUBIC),
-            transforms.ToTensor(),
-            normalize,
-        ])
-
-        with torch.no_grad():
-            for image_id, image_data in tqdm(self.data[dataset_name].items()):
-                raw_image = self.get_image(dataset_name, image_data)
-                image = test_transform(raw_image).to(device)
-                image = image.unsqueeze(dim=0)
-                image_feat = model.visual_encoder.visual(image, skip_last_layer=True)
-                image_feat = model.visn_layer_norm(model.visn_fc(image_feat))
-                image_embed = model.vision_proj(image_feat[:, 0, :])[0]
-                image_embed = F.normalize(image_embed, dim=-1)
-                for caption_ind, caption_data in enumerate(image_data['captions']):
-                    caption = caption_data['caption']
-                    text_input = tokenizer(caption, padding='max_length', truncation=True, max_length=30, return_tensors="pt").to(device)
-                    text_output = model.text_encoder(text_input.input_ids, attention_mask=text_input.attention_mask)
-                    text_feat = text_output.last_hidden_state
-                    text_embed = F.normalize(model.text_proj(text_feat[:, 0, :]))[0]
-                    embed_score = image_embed.dot(text_embed).item()
-                    self.data[dataset_name][image_id]['captions'][caption_ind]['automatic_metrics']['mPLUGScore'] = embed_score
+        self.log_scores(split_name, image_ids, caption_inds, 'BLIP2Score', scores)
 
     def get_all_metrics(self, sort_by_type=False):
         # all_metrics = list(set([x for dataset_data in self.data.values() for image_data in dataset_data.values() for caption_data in image_data['captions'] for x in caption_data['automatic_metrics'].keys()]))
