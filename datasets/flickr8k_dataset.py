@@ -1,8 +1,8 @@
 from image_path_rating_dataset import ImagePathRatingDataset
 from collections import defaultdict
 import os
+from config import flickr8k_path
 
-flickr8k_dir = 'flickr8k_data'
 class Flickr8kDataset(ImagePathRatingDataset):
     def __init__(self, name):
         super(Flickr8kDataset, self).__init__()
@@ -10,13 +10,10 @@ class Flickr8kDataset(ImagePathRatingDataset):
 
     def get_name(self):
         return f'flickr8k_{self.name}'
-        
-    def get_file_name2iid_func(self, dataset_name):
-        return lambda x: int(x)
 
     def collect_data(self):
         iid2captions = defaultdict(list)
-        with open(f'{flickr8k_dir}/Flickr8k.token.txt', 'r') as fp:
+        with open(os.path.join(flickr8k_path, 'Flickr8k_text', 'Flickr8k.token.txt'), 'r') as fp:
             for line in fp:
                 line_parts = line.strip().split('\t')
                 assert len(line_parts) == 2
@@ -26,12 +23,12 @@ class Flickr8kDataset(ImagePathRatingDataset):
 
         data = {}
         human_rating_file_name = 'ExpertAnnotations' if self.name == 'expert' else 'CrowdFlowerAnnotations'
-        with open(f'{flickr8k_dir}/{human_rating_file_name}.txt', 'r') as fp:
+        with open(os.path.join(flickr8k_path, 'Flickr8k_text', f'{human_rating_file_name}.txt'), 'r') as fp:
             for line in fp:
                 line_parts = line.strip().split('\t')
                 image_id = int(line_parts[0].split('_')[0])
                 if image_id not in data:
-                    file_path = f'/cs/labs/oabend/uriber/datasets/flickr30/images/{image_id}.jpg'
+                    file_path = os.path.join(flickr8k_path, 'Flickr8k_Dataset', f'{image_id}.jpg')
                     if not os.path.isfile(file_path):
                         continue
                     data[image_id] = {

@@ -3,13 +3,13 @@ import os
 import csv
 import json
 from Levenshtein import distance
+from collections import defaultdict
 import numpy as np
 from config import flickr30k_image_dir_path, \
-    flickr8k_image_dir_path, \
+    flickr8k_path, \
     coco_image_dir_path, \
     composite_path, \
     flickr30k_json_path, \
-    flickr8k_json_path, \
     coco_json_path
 
 entry2iid = {
@@ -49,13 +49,17 @@ class CompositeDataset(ImagePathRatingDataset):
         human_rating_file_path = os.path.join(human_rating_dir, f'{dataset_to_file_name[split_name]}_correctness.csv')
 
         if split_name == 'flickr8k':
-            with open(flickr8k_json_path, 'r') as fp:
-                json_data = json.load(fp)
+            iid2refs = defaultdict(list)
+            with open(os.path.join(flickr8k_path, 'Flickr8k_text', 'Flickr8k.token.txt'), 'r') as fp:
+                for line in fp:
+                    iid = line.split('.jpg#')[0]
+                    ref = line.strip().split('\t')[1]
+                    iid2refs[iid].append(ref)
             data = {int(x[0].split('_')[0]): {
-                'references': x[1]['ground_truth'],
-                'file_path': os.path.join(flickr8k_image_dir_path, f'{x[1]["image_path"].split("/")[1]}'),
+                'references': x[1],
+                'file_path': os.path.join(flickr8k_path, 'Flickr8k_Dataset', f'{x[0]}.jpg'),
                 'captions': []
-                } for x in json_data.items()}
+                } for x in iid2refs.items()}
         elif split_name == 'flickr30k':
             with open(flickr30k_json_path, 'r') as fp:
                 json_data = json.load(fp)['images']
