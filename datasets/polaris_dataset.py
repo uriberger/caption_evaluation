@@ -13,9 +13,6 @@ class PolarisDataset(HumanRatingDataset):
 
     def get_name(self):
         return 'polaris'
-    
-    def get_file_name2iid_func(self, dataset_name):
-        return lambda x: int(x)
 
     def collect_data(self):
         dataset = load_dataset('yuwd/Polaris')
