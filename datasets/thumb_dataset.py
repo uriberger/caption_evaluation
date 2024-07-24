@@ -1,7 +1,5 @@
 from datasets.image_path_rating_dataset import ImagePathRatingDataset
 import json
-from Levenshtein import distance
-import numpy as np
 from config import coco_image_dir_path
 import os
 
