@@ -2,6 +2,7 @@ from image_path_rating_dataset import ImagePathRatingDataset
 import scipy as sp
 import os
 import random
+from config import pascal_image_dir_path, pascal_data_dir_path
 
 system_ind2type = {1: 'M', 2: 'M', 3: 'M', 4: 'M', 5: 'M', 6: 'H', 7: 'R'}
 
@@ -10,10 +11,9 @@ class Pascal50Dataset(ImagePathRatingDataset):
         return 'pascal50'
     
     def collect_data(self):
-        pascal_im_dir = '/cs/labs/oabend/uriber/datasets/pascal_sentences/dataset'
         iid2file_path = {}
-        for dir_name in os.listdir(pascal_im_dir):
-            dir_path = os.path.join(pascal_im_dir, dir_name)
+        for dir_name in os.listdir(pascal_image_dir_path):
+            dir_path = os.path.join(pascal_image_dir_path, dir_name)
             if not os.path.isdir(dir_path):
                 continue
             for file_name in os.listdir(dir_path):
@@ -23,9 +23,8 @@ class Pascal50Dataset(ImagePathRatingDataset):
                 file_path = os.path.join(dir_path, file_name)
                 iid2file_path[iid] = file_path
 
-        data_dir = 'pyCIDErConsensus'
-        conc_data = sp.io.loadmat(f'{data_dir}/consensus_pascal.mat')['triplets']
-        pair_pascal = sp.io.loadmat(f'{data_dir}/pair_pascal.mat')
+        conc_data = sp.io.loadmat(f'{pascal_data_dir_path}/consensus_pascal.mat')['triplets']
+        pair_pascal = sp.io.loadmat(f'{pascal_data_dir_path}/pair_pascal.mat')
         pair_data = pair_pascal['new_input']
         system_data = pair_pascal['new_data']
         data = {}
