@@ -6,3 +6,4 @@ coco_json_path = '/cs/snapless/gabis/uriber/CLIP_prefix_caption/dataset_coco.jso
 composite_path = '/cs/labs/oabend/uriber/datasets/AMT_eval'
 pascal_image_dir_path = '/cs/labs/oabend/uriber/datasets/pascal_sentences/dataset'
 pascal_data_dir_path = 'pyCIDErConsensus'
+reformulations_json_path = '../AliceMind/mPLUG/reformulation_data/full_reformulation_dataset.json'

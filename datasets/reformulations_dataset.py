@@ -1,5 +1,7 @@
 from image_path_rating_dataset import ImagePathRatingDataset
 import json
+import os
+from config import reformulations_json_path, coco_json_path, flickr30k_json_path, coco_image_dir_path, flickr30k_image_dir_path
 
 file_name2iid = {
     'flickr30k': lambda x: int(x),
@@ -14,12 +16,12 @@ class ReformulationsDataset(ImagePathRatingDataset):
         return file_name2iid[dataset_name]
     
     def collect_data(self):
-        with open('../AliceMind/mPLUG/reformulation_data/full_reformulation_dataset.json', 'r') as fp:
+        with open(reformulations_json_path, 'r') as fp:
             samples = json.load(fp)
 
-        with open('../CLIP_prefix_caption/dataset_coco.json', 'r') as fp:
+        with open(coco_json_path, 'r') as fp:
             coco_orig_data = json.load(fp)['images']
-        with open('/cs/labs/oabend/uriber/datasets/flickr30/karpathy/dataset_flickr30k.json', 'r') as fp:
+        with open(flickr30k_json_path, 'r') as fp:
             flickr_orig_data = json.load(fp)['images']
         dataset2iid2orig_data = {
             'coco': {x['cocoid']: x for x in coco_orig_data},
@@ -32,11 +34,14 @@ class ReformulationsDataset(ImagePathRatingDataset):
             image_id = file_name2iid[cur_dataset](sample['image'].split('.')[0].split('/')[-1])
             if image_id not in data[cur_dataset]:
                 cur_orig_data = dataset2iid2orig_data[cur_dataset][image_id]
-                dataset_dir = 'COCO' if cur_dataset == 'coco' else 'flickr30'
-                split_dir = cur_orig_data["filepath"] if cur_dataset == 'coco' else 'images'
+                if cur_dataset == 'coco':
+                    split_dir = cur_orig_data["filepath"] if cur_dataset == 'coco' else ''
+                    file_dir = os.path.join(coco_image_dir_path, split_dir)
+                else:
+                    file_dir = flickr30k_image_dir_path
                 data[cur_dataset][image_id] = {
                     'references': [x['raw'] for x in cur_orig_data['sentences']],
-                    'file_path': f'/cs/labs/oabend/uriber/datasets/{dataset_dir}/{split_dir}/{cur_orig_data["filename"]}',
+                    'file_path': os.path.join(file_dir, cur_orig_data['filename']),
                     'captions': []
                 }
             cur_ind = len(data[cur_dataset][image_id]['captions'])
