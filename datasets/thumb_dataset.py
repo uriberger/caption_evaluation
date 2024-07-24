@@ -1,4 +1,4 @@
-from image_path_rating_dataset import ImagePathRatingDataset
+from datasets.image_path_rating_dataset import ImagePathRatingDataset
 import json
 from Levenshtein import distance
 import numpy as np

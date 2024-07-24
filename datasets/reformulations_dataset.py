@@ -1,4 +1,4 @@
-from image_path_rating_dataset import ImagePathRatingDataset
+from datasets.image_path_rating_dataset import ImagePathRatingDataset
 import json
 import os
 from config import reformulations_json_path, coco_json_path, flickr30k_json_path, coco_image_dir_path, flickr30k_image_dir_path
