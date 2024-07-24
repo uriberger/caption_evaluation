@@ -1,4 +1,4 @@
-from human_rating_dataset import HumanRatingDataset
+from datasets.human_rating_dataset import HumanRatingDataset
 from datasets import load_dataset
 from tqdm import tqdm
 import os
