@@ -2,13 +2,12 @@ from image_path_rating_dataset import ImagePathRatingDataset
 import json
 from Levenshtein import distance
 import numpy as np
+from config import coco_image_dir_path
+import os
 
 class ThumbDataset(ImagePathRatingDataset):
     def get_name(self):
         return 'thumb'
-        
-    def get_file_name2iid_func(self, dataset_name):
-        return lambda x: int(x.split('_')[-1])
     
     def collect_data(self):
         data = {}
@@ -27,7 +26,7 @@ class ThumbDataset(ImagePathRatingDataset):
                 dir = '_'.join(sample['image'].split('_')[:2])
                 data[image_id] = {
                     'references': iid2refs[image_id],
-                    'file_path': f'/cs/labs/oabend/uriber/datasets/COCO/{dir}/{sample["image"]}',
+                    'file_path': os.path.join(coco_image_dir_path, dir, sample["image"]),
                     'captions': []
                 }
             caption = sample['hyp']
@@ -35,8 +34,5 @@ class ThumbDataset(ImagePathRatingDataset):
             precision = sample['P']
             recall = sample['R']
             data[image_id]['captions'].append({'caption': caption, 'human_ratings': [human_rating], 'precision': [precision], 'recall': [recall], 'automatic_metrics': {}})
-            if len(data[image_id]['captions']) == 5:
-                # If we didn't ignore, tell the ref based metrics to ignore the same reference
-                data[image_id]['captions'][-1]['ignore_refs'] = [np.argmin([distance(caption, ref) for ref in data[image_id]['references']])]
 
         self.data['coco'] = data
