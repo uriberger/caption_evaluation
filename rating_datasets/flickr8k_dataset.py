@@ -32,7 +32,7 @@ class Flickr8kDataset(ImagePathRatingDataset):
                     if not os.path.isfile(file_path):
                         continue
                     data[image_id] = {
-                        'references': iid2captions[image_id],
+                        'references': iid2captions[int(image_id.split('_')[0])],
                         'file_path': file_path,
                         'captions': []
                         }
