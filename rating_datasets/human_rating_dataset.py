@@ -124,8 +124,8 @@ class HumanRatingDataset:
 
         # Tokenize
         tokenizer = PTBTokenizer()
-        tokenized_references = tokenizer.tokenize({x[0]: [{'caption': y} for y in x[1]] for x in references.items()})
-        tokenized_candidates = tokenizer.tokenize({x[0]: [{'caption': y} for y in x[1]] for x in candidates.items()})
+        tokenized_references = tokenizer.tokenize({x[0]: [{'caption': y} for y in x[1]] for x in ref_dict.items()})
+        tokenized_candidates = tokenizer.tokenize({x[0]: [{'caption': y} for y in x[1]] for x in cand_dict.items()})
 
         # Put refs and cands in ordered dict; this is needed so that the results of all metrics are in the image id order
         ref_ids = sorted(list(tokenized_references.keys()))
