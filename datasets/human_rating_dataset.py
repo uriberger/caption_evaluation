@@ -8,8 +8,6 @@ import random
 import pickle
 import torch
 import torch.nn as nn
-from sklearn.feature_selection import SequentialFeatureSelector
-from sklearn.linear_model import LinearRegression
 import statistics
 from tqdm import tqdm
 import csv
@@ -537,29 +535,4 @@ class HumanRatingDataset:
         metric_to_accuracy = {x[0]: x[1]/metric_to_all_count[x[0]] for x in metric_to_correct_count.items()}
         res = [(metric, metric_to_accuracy[metric]) for metric in all_metrics]
         res.sort(key=lambda x:x[1], reverse=True)
-        return res
-
-    def select_predictor_metrics(self):
-        all_metrics = self.get_all_metrics()
-
-        N = sum([sum([len(image_data['captions']) for image_data in dataset_data.values()]) for dataset_data in self.data.values()])
-        X = np.zeros((N, len(all_metrics)))
-        y = np.zeros(N)
-
-        cur_sample_ind = 0
-        for dataset_data in self.data.values():
-            for image_data in dataset_data.values():
-                for caption_data in image_data['captions']:
-                    y[cur_sample_ind] = caption_data['human_rating']
-                    for metric_ind, metric in enumerate(all_metrics):
-                        X[cur_sample_ind, metric_ind] = caption_data['automatic_metrics'][metric]
-                    cur_sample_ind += 1
-
-        reg = LinearRegression()
-        res = {}
-        for direction in ['forward', 'backward']:
-            sfs = SequentialFeatureSelector(reg, direction=direction)
-            sfs.fit(X, y)
-            res[direction] = [all_metrics[i] for i in range(len(all_metrics)) if sfs.get_support()[i]]
-
         return res
