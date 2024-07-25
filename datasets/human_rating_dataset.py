@@ -74,19 +74,26 @@ class HumanRatingDataset:
         for image_id, caption_ind, score in zip(image_ids, caption_inds, scores):
             self.data[split_name][image_id]['captions'][caption_ind]['automatic_metrics'][metric_name] = float(score)
 
-    def compute_metrics(self, compute_clip_image_score=False):
+    def compute_metrics(self, compute_clip_image_score=False, overwrite=False):
         for split in self.data.keys():
-            self.compute_metrics_for_split(split, compute_clip_image_score)
+            self.compute_metrics_for_split(split, compute_clip_image_score, overwrite)
 
-    def compute_metrics_for_split(self, split_name, compute_clip_image_score):
-        self.compute_coco_metrics(split_name)
-        self.compute_clipscore(split_name)
-        self.compute_content_overlap_metrics(split_name)
-        self.compute_blip2(split_name)
-        self.compute_polos(split_name)
-        self.compute_mpnet_score(split_name)
-        self.compute_pacscore(split_name)
-        if compute_clip_image_score:
+    def compute_metrics_for_split(self, split_name, compute_clip_image_score, overwrite):
+        if overwrite or ('METEOR' not in list(self.data[split_name].values())[0]['captions'][0]['automatic_metrics']):
+            self.compute_coco_metrics(split_name)
+        if overwrite or ('CLIPScore' not in list(self.data[split_name].values())[0]['captions'][0]['automatic_metrics']):
+            self.compute_clipscore(split_name)
+        if overwrite or ('Exact noun overlap' not in list(self.data[split_name].values())[0]['captions'][0]['automatic_metrics']):
+            self.compute_content_overlap_metrics(split_name)
+        if overwrite or ('BLIP2Score' not in list(self.data[split_name].values())[0]['captions'][0]['automatic_metrics']):
+            self.compute_blip2(split_name)
+        if overwrite or ('polos' not in list(self.data[split_name].values())[0]['captions'][0]['automatic_metrics']):
+            self.compute_polos(split_name)
+        if overwrite or ('MPNetScore' not in list(self.data[split_name].values())[0]['captions'][0]['automatic_metrics']):
+            self.compute_mpnet_score(split_name)
+        if overwrite or ('PACScore' not in list(self.data[split_name].values())[0]['captions'][0]['automatic_metrics']):
+            self.compute_pacscore(split_name)
+        if compute_clip_image_score and (overwrite or ('CLIPImageScore' not in list(self.data[split_name].values())[0]['captions'][0]['automatic_metrics'])):
             self.compute_clip_image_score(split_name)
 
     def compute_coco_metrics(self, split_name):
