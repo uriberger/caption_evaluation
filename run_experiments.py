@@ -1,15 +1,15 @@
 import argparse
 import os
-from datasets.flickr8k_dataset import Flickr8kDataset
-from datasets.composite_dataset import CompositeDataset
-from datasets.thumb_dataset import ThumbDataset
-from datasets.polaris_dataset import PolarisDataset
-from datasets.pascal50_dataset import Pascal50Dataset
-from datasets.reformulations_dataset import ReformulationsDataset
+from rating_datasets.flickr8k_dataset import Flickr8kDataset
+from rating_datasets.composite_dataset import CompositeDataset
+from rating_datasets.thumb_dataset import ThumbDataset
+from rating_datasets.polaris_dataset import PolarisDataset
+from rating_datasets.pascal50_dataset import Pascal50Dataset
+from rating_datasets.reformulations_dataset import ReformulationsDataset
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', choices=['flickr8k_expert', 'flickr8k_cf', 'composite', 'thumb', 'polaris', 'pascal50', 'reformulations'])
+    parser.add_argument('--dataset', choices=['flickr8k_expert', 'flickr8k_cf', 'composite', 'thumb', 'polaris', 'pascal50', 'reformulations'], required=True)
     parser.add_argument('--eval_method', choices=['correlation', 'pairwise'], default='correlation')
     parser.add_argument('--correlation_type', choices=['pearson', 'spearman', 'kendall_b', 'kendall_c'])
     parser.add_argument('--clip_image_score', action='store_true')

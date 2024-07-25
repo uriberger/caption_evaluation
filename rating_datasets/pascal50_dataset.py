@@ -1,4 +1,4 @@
-from datasets.image_path_rating_dataset import ImagePathRatingDataset
+from rating_datasets.image_path_rating_dataset import ImagePathRatingDataset
 import scipy as sp
 import os
 import random

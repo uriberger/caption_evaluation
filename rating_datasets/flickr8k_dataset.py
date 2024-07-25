@@ -1,4 +1,4 @@
-from datasets.image_path_rating_dataset import ImagePathRatingDataset
+from rating_datasets.image_path_rating_dataset import ImagePathRatingDataset
 from collections import defaultdict
 import os
 from config import flickr8k_path

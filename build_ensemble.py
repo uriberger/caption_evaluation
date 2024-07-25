@@ -1,4 +1,4 @@
-from polaris_dataset import PolarisDataset
+from rating_datasets.polaris_dataset import PolarisDataset
 import numpy as np
 from sklearn.feature_selection import SequentialFeatureSelector
 from sklearn.linear_model import LinearRegression

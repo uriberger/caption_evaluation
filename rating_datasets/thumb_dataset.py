@@ -1,4 +1,4 @@
-from datasets.image_path_rating_dataset import ImagePathRatingDataset
+from rating_datasets.image_path_rating_dataset import ImagePathRatingDataset
 import json
 from config import coco_image_dir_path
 import os

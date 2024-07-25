@@ -1,5 +1,5 @@
-from datasets.human_rating_dataset import HumanRatingDataset
-from datasets import load_dataset
+from rating_datasets.human_rating_dataset import HumanRatingDataset
+from rating_datasets import load_dataset
 from tqdm import tqdm
 import os
 import shutil
