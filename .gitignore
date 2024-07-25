@@ -11,7 +11,6 @@ flickr8k_data
 mPLUG
 pacscore
 THumB
-*.csv
 slurm-*.out
 pyCIDErConsensus
 *~
