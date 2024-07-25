@@ -109,14 +109,13 @@ class HumanRatingDataset:
         new_to_orig_id = lambda new_id: (new_to_orig_image_id[new_id % 10**(digit_num)], new_id // 10**(digit_num))
 
         # Collect references and candidates
-        references = {}
-        candidates = {}
-        for orig_image_id in new_to_orig_image_id:
-            image_data = self.data[split_name][orig_image_id]
-            for caption_ind, caption_data in enumerate(image_data['captions']):
-                new_id = orig_to_new_id(orig_image_id, caption_ind)
-                references[new_id] = image_data['references']
-                candidates[new_id] = [caption_data['caption']]
+        image_ids, _, caption_inds, references, candidates = self.get_data_list(split_name)
+        ref_dict = {}
+        cand_dict = {}
+        for orig_image_id, caption_ind, refs, cand in zip(image_ids, caption_inds, references, candidates):
+            new_id = orig_to_new_id(orig_image_id, caption_ind)
+            ref_dict[new_id] = refs
+            cand_dict[new_id] = [cand]
 
         # Tokenize
         tokenizer = PTBTokenizer()
@@ -168,10 +167,14 @@ class HumanRatingDataset:
             metric_name_to_scores[f'SPICE_{submetric}'] = [x[submetric]['f'] for x in spice_scores]        
 
         # Log scores
+        image_ids = []
+        caption_inds = []
+        for id in ref_ids:
+            orig_image_id, caption_ind = new_to_orig_id(id)
+            image_ids.append(orig_image_id)
+            caption_inds.append(caption_ind)
         for metric_name, scores in metric_name_to_scores.items():
-            for id, score in zip(ref_ids, scores):
-                orig_image_id, caption_id = new_to_orig_id(id)
-                self.data[split_name][orig_image_id]['captions'][caption_id]['automatic_metrics'][metric_name] = score
+            self.log_scores(split_name, image_ids, caption_inds, metric_name, scores)
     
     def compute_clipscore(self, split_name):
         import clip
