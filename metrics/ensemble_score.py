@@ -4,10 +4,16 @@ reference_metrics = ['Exact noun overlap', 'Fuzzy noun overlap', 'Exact verb ove
 image_metrics = ['CLIPScore', 'RefCLIPScore', 'PACScore', 'RefPACScore', 'BLIP2Score', 'CLIPImageScore', 'polos']
 
 def compute_ensemble_score(candidates, references, image_paths, weights=None):
+    assert type(candidates) == list, 'Please provide a list of candidates'
+    assert set([type(x) for x in candidates]) == {str}, 'Each candidate should be a single caption'
     if references is not None:
         assert len(candidates) == len(references), 'Please provide the same number of candidates and reference sets'
+        assert type(references) == list, 'Please provide a list of references'
+        assert set([type(x) for x in references]) == {list}, 'Each element in the reference list should be a list of references'
     if image_paths is not None:
         assert len(candidates) == len(image_paths), 'Please provide the same number of candidates and image paths'
+        assert type(image_paths) == list, 'Please provide a list of image paths'
+        assert set([type(x) for x in image_paths]) == {str}, 'Each image path should be a string'
 
     if weights is None:
         with open('ensemble_weights.json', 'r') as fp:
@@ -55,6 +61,9 @@ def compute_ensemble_score(candidates, references, image_paths, weights=None):
                 from metrics.mpnet_score import compute_mpnet_score
                 mpnet_scores = compute_mpnet_score(candidates, references)
                 metric2scores[metric_name] = mpnet_scores
+            else:
+                supported_metric_list = ['Exact noun overlap', 'Fuzzy noun overlap', 'Exact verb overlap', 'Fuzzy verb overlap', 'CLIPScore', 'RefCLIPScore', 'METEOR', 'PACScore', 'ROUGE', 'RefPACScore', 'SPICE', 'BLEU1', 'BLEU2', 'BLEU3', 'BLEU4', 'BLIP2Score', 'CIDEr', 'CLIPImageScore', 'MPNetScore', 'polos']
+                assert False, f'Unsupported metric: {metric_name}, supported metrics are\n{", ".join(supported_metric_list)}'
 
     ensemble_scores = [sum([x[1]*metric2scores[x[0]][i] for x in weights.items()]) for i in range(len(candidates))]
     return ensemble_scores
