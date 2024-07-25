@@ -26,7 +26,7 @@ class Flickr8kDataset(ImagePathRatingDataset):
         with open(os.path.join(flickr8k_path, 'Flickr8k_text', f'{human_rating_file_name}.txt'), 'r') as fp:
             for line in fp:
                 line_parts = line.strip().split('\t')
-                image_id = int(line_parts[0].split('_')[0])
+                image_id = line_parts[0].split('.')[0]
                 if image_id not in data:
                     file_path = os.path.join(flickr8k_path, 'Flickr8k_Dataset', f'{image_id}.jpg')
                     if not os.path.isfile(file_path):
