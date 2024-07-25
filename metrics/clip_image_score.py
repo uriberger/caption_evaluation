@@ -18,7 +18,7 @@ def compute_clip_image_score(candidates, image_paths):
     prev_image_path = None
     scores = []
     with torch.no_grad():
-        for candidate, image_path in tqdm(zip(candidates, image_paths)):
+        for candidate, image_path in tqdm(list(zip(candidates, image_paths))):
             if image_path != prev_image_path:
                 orig_image = Image.open(image_path).convert("RGB")
                 orig_image = preprocess(orig_image).unsqueeze(0).to(device)
