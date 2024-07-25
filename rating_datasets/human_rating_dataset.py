@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import os
-import sys
 import random
 import pickle
 import torch
@@ -45,10 +44,9 @@ class HumanRatingDataset:
     def clean_temp_files(self):
         return
     
-    def get_data_list(self, split_name, img_obj=False):
+    def get_data_list(self, split_name):
         image_ids = []
         image_paths = []
-        images = []
         caption_inds = []
         references = []
         candidates = []
@@ -62,13 +60,8 @@ class HumanRatingDataset:
                 image_paths.append(file_path)
                 image_ids.append(image_id)
                 caption_inds.append(caption_ind)
-                if img_obj:
-                    images.append(self.get_image(split_name, image_data))
 
-        if img_obj:
-            return image_ids, images, caption_inds, references, candidates
-        else:
-            return image_ids, image_paths, caption_inds, references, candidates
+        return image_ids, image_paths, caption_inds, references, candidates
     
     def log_scores(self, split_name, image_ids, caption_inds, metric_name, scores):
         for image_id, caption_ind, score in zip(image_ids, caption_inds, scores):
@@ -80,281 +73,91 @@ class HumanRatingDataset:
 
     def compute_metrics_for_split(self, split_name, compute_clip_image_score, overwrite):
         if overwrite or ('METEOR' not in list(self.data[split_name].values())[0]['captions'][0]['automatic_metrics']):
-            self.compute_coco_metrics(split_name)
+            self.compute_coco_metrics_for_split(split_name)
         if overwrite or ('CLIPScore' not in list(self.data[split_name].values())[0]['captions'][0]['automatic_metrics']):
-            self.compute_clipscore(split_name)
+            self.compute_clipscore_for_split(split_name)
         if overwrite or ('Exact noun overlap' not in list(self.data[split_name].values())[0]['captions'][0]['automatic_metrics']):
-            self.compute_content_overlap_metrics(split_name)
+            self.compute_content_overlap_metrics_for_split(split_name)
         if overwrite or ('BLIP2Score' not in list(self.data[split_name].values())[0]['captions'][0]['automatic_metrics']):
-            self.compute_blip2(split_name)
+            self.compute_blip2score_for_split(split_name)
         if overwrite or ('polos' not in list(self.data[split_name].values())[0]['captions'][0]['automatic_metrics']):
-            self.compute_polos(split_name)
+            self.compute_polos_for_split(split_name)
         if overwrite or ('MPNetScore' not in list(self.data[split_name].values())[0]['captions'][0]['automatic_metrics']):
-            self.compute_mpnet_score(split_name)
+            self.compute_mpnet_score_for_split(split_name)
         if overwrite or ('PACScore' not in list(self.data[split_name].values())[0]['captions'][0]['automatic_metrics']):
-            self.compute_pacscore(split_name)
+            self.compute_pacscore_for_split(split_name)
         if compute_clip_image_score and (overwrite or ('CLIPImageScore' not in list(self.data[split_name].values())[0]['captions'][0]['automatic_metrics'])):
-            self.compute_clip_image_score(split_name)
+            self.compute_clip_image_score_for_split(split_name)
 
-    def compute_coco_metrics(self, split_name):
-        from pycocoevalcap.tokenizer.ptbtokenizer import PTBTokenizer
-        from pycocoevalcap.bleu.bleu import Bleu
-        from pycocoevalcap.meteor.meteor import Meteor
-        from pycocoevalcap.rouge.rouge import Rouge
-        from pycocoevalcap.cider.cider import Cider
-        from pycocoevalcap.spice.spice import Spice
-        from collections import OrderedDict
+    def compute_coco_metrics_for_split(self, split_name):
+        from metrics.coco_metrics import compute_coco_metrics
 
-        # Some metrics are not compatabile with large image ids; map to small ones
-        new_to_orig_image_id = list(self.data[split_name].keys())
-        orig_to_new_image_id = {new_to_orig_image_id[i]: i for i in range(len(new_to_orig_image_id))}
-        image_num = len(new_to_orig_image_id)
-        digit_num = len(str(image_num))
-        orig_to_new_id = lambda image_id, caption_ind: caption_ind*10**(digit_num) + orig_to_new_image_id[image_id]
-        new_to_orig_id = lambda new_id: (new_to_orig_image_id[new_id % 10**(digit_num)], new_id // 10**(digit_num))
-
-        # Collect references and candidates
         image_ids, _, caption_inds, references, candidates = self.get_data_list(split_name)
-        ref_dict = {}
-        cand_dict = {}
-        for orig_image_id, caption_ind, refs, cand in zip(image_ids, caption_inds, references, candidates):
-            new_id = orig_to_new_id(orig_image_id, caption_ind)
-            ref_dict[new_id] = refs
-            cand_dict[new_id] = [cand]
-
-        # Tokenize
-        tokenizer = PTBTokenizer()
-        tokenized_references = tokenizer.tokenize({x[0]: [{'caption': y} for y in x[1]] for x in ref_dict.items()})
-        tokenized_candidates = tokenizer.tokenize({x[0]: [{'caption': y} for y in x[1]] for x in cand_dict.items()})
-
-        # Put refs and cands in ordered dict; this is needed so that the results of all metrics are in the image id order
-        ref_ids = sorted(list(tokenized_references.keys()))
-        assert set(ref_ids) == set(tokenized_candidates.keys())
-        ordered_tokenized_references = OrderedDict()
-        ordered_tokenized_candidates = OrderedDict()
-        for id in ref_ids:
-            ordered_tokenized_references[id] = tokenized_references[id]
-            ordered_tokenized_candidates[id] = tokenized_candidates[id]
-        tokenized_references = ordered_tokenized_references
-        tokenized_candidates = ordered_tokenized_candidates
-
-        # Now, compute metrics
-        metric_name_to_scores = {}
-
-        ####BLEU####
-        pycoco_bleu = Bleu()
-        _, all_scores = pycoco_bleu.compute_score(tokenized_references, tokenized_candidates)
-        for i in range(4):
-            metric_name_to_scores[f'BLEU{i+1}'] = all_scores[i]
-
-        ####METEOR###
-        pycoco_meteor = Meteor()
-        _, all_scores = pycoco_meteor.compute_score(tokenized_references, tokenized_candidates)
-        metric_name_to_scores['METEOR'] = all_scores
-        del pycoco_meteor
-
-        ####ROUGE###
-        pycoco_rouge = Rouge()
-        _, all_scores = pycoco_rouge.compute_score(tokenized_references, tokenized_candidates)
-        metric_name_to_scores['ROUGE'] = all_scores
-
-        ####CIDER###
-        pycoco_cider = Cider()
-        _, all_scores = pycoco_cider.compute_score(tokenized_references, tokenized_candidates)
-        metric_name_to_scores['CIDEr'] = all_scores
-
-        ####SPICE###
-        pycoco_spice = Spice()
-        _, spice_scores = pycoco_spice.compute_score(tokenized_references, tokenized_candidates)
-        metric_name_to_scores['SPICE'] = [x['All']['f'] for x in spice_scores]
-        spice_submetrics = ['Relation', 'Cardinality', 'Attribute', 'Size', 'Color', 'Object']
-        for submetric in spice_submetrics:
-            metric_name_to_scores[f'SPICE_{submetric}'] = [x[submetric]['f'] for x in spice_scores]        
+        metric_name_to_scores = compute_coco_metrics(candidates, references)
 
         # Log scores
         image_ids = []
         caption_inds = []
-        for id in ref_ids:
-            orig_image_id, caption_ind = new_to_orig_id(id)
-            image_ids.append(orig_image_id)
-            caption_inds.append(caption_ind)
         for metric_name, scores in metric_name_to_scores.items():
             self.log_scores(split_name, image_ids, caption_inds, metric_name, scores)
     
-    def compute_clipscore(self, split_name):
-        import clip
-        sys.path.append('clipscore')
-        import clipscore
-
-        device = torch.device('cuda')
-        model, transform = clip.load("ViT-B/32", device=device, jit=False)
-        model.eval()
-
+    def compute_clipscore_for_split(self, split_name):
+        from metrics.clipscore import compute_clipscore
         image_ids, image_paths, caption_inds, references, candidates = self.get_data_list(split_name)
         
-        image_feats = clipscore.extract_all_images(image_paths, model, device, batch_size=64, num_workers=8)
-        _, per_instance_image_text, candidate_feats = clipscore.get_clip_score(model, image_feats, candidates, device)
-        _, per_instance_text_text = clipscore.get_refonlyclipscore(model, references, candidate_feats, device)
-        refclipscores = 2 * per_instance_image_text * per_instance_text_text / (per_instance_image_text + per_instance_text_text)
-
-        self.log_scores(split_name, image_ids, caption_inds, 'CLIPScore', per_instance_image_text)
+        clipscores, refclipscores = compute_clipscore(candidates, references, image_paths)
+        self.log_scores(split_name, image_ids, caption_inds, 'CLIPScore', clipscores)
         self.log_scores(split_name, image_ids, caption_inds, 'RefCLIPScore', refclipscores)
     
-    def compute_pacscore(self, split_name):
+    def compute_pacscore_for_split(self, split_name):
+        from metrics.pacscore import compute_pacscore
         image_ids, image_paths, caption_inds, references, candidates = self.get_data_list(split_name)
 
-        gen = {}
-        gts = {}
-
-        ims_cs = list()
-        gen_cs = list()
-        gts_cs = list()
-
-        for i, (im_i, gts_i, gen_i) in enumerate(zip(image_paths, references, candidates)):
-            gen['%d' % (i)] = [gen_i, ]
-            gts['%d' % (i)] = gts_i
-            ims_cs.append(im_i)
-            gen_cs.append(gen_i)
-            gts_cs.append(gts_i)
-
-        sys.path.append('pacscore')
-        import evaluation
-        gts = evaluation.PTBTokenizer.tokenize(gts)
-        gen = evaluation.PTBTokenizer.tokenize(gen)
-
-        from models.clip import clip
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        model, preprocess = clip.load('ViT-B/32', device=device)
-        model = model.to(device)
-        model = model.float()
-        checkpoint = torch.load("pacscore/checkpoints/clip_ViT-B-32.pth")
-        model.load_state_dict(checkpoint['state_dict'])
-        model.eval()
-
-        from evaluation import PACScore, RefPACScore
-        _, pac_scores, candidate_feats, len_candidates = PACScore(model, preprocess, ims_cs, gen_cs, device, w=2.0)
-        _, per_instance_text_text = RefPACScore(model, gts_cs, candidate_feats, device, torch.tensor(len_candidates))
-        refpac_scores = 2 * pac_scores * per_instance_text_text / (pac_scores + per_instance_text_text)
+        pac_scores, refpac_scores = compute_pacscore(candidates, references, image_paths)
 
         self.log_scores(split_name, image_ids, caption_inds, 'PACScore', pac_scores)
         self.log_scores(split_name, image_ids, caption_inds, 'RefPACScore', refpac_scores)
         
         self.clean_temp_files()
     
-    def compute_content_overlap_metrics(self, split_name):
-        from content_score import compute_and_add_content_recall
+    def compute_content_overlap_metrics_for_split(self, split_name):
+        from metrics.content_overlap_metrics import compute_content_overlap_metrics
 
         image_ids, _, caption_inds, references, candidates = self.get_data_list(split_name)
-        samples = [{'candidate_summary': candidate, 'refs': refs} for candidate, refs in zip(candidates, references)]
+        scores = compute_content_overlap_metrics(candidates, references)
 
-        res = compute_and_add_content_recall(samples, 'refs')
-        self.log_scores(split_name, image_ids, caption_inds, 'Exact noun overlap', [x['scores']['content_recall']['candidate_summary_noun_recall'] for x in res])
-        self.log_scores(split_name, image_ids, caption_inds, 'Fuzzy noun overlap', [x['scores']['content_recall']['candidate_summary_noun_fuzzy_recall'] for x in res])
-        self.log_scores(split_name, image_ids, caption_inds, 'Exact verb overlap', [x['scores']['content_recall']['candidate_summary_verb_recall'] for x in res])
-        self.log_scores(split_name, image_ids, caption_inds, 'Fuzzy verb overlap', [x['scores']['content_recall']['candidate_summary_verb_fuzzy_recall'] for x in res])
+        for metric_name, metric_scores in scores.items():
+            self.log_scores(split_name, image_ids, caption_inds, metric_name, metric_scores)
     
-    def compute_polos(self, split_name):
-        from polos.models import download_model, load_checkpoint
+    def compute_polos_for_split(self, split_name):
+        from metrics.polos import compute_polos
 
-        image_ids, images, caption_inds, references, candidates = self.get_data_list(split_name, img_obj=True)
-        polos_data = [{'img': images[i], 'mt': candidates[i], 'refs': references[i]} for i in range(len(images))]
-
-        print('Loading model...', flush=True)
-        model_path = download_model("polos")
-        model = load_checkpoint(model_path)
-        print('Model loaded!')
-        print('Computing scores...', flush=True)
-        _, scores = model.predict(polos_data, batch_size=8, cuda=True)
+        image_ids, image_paths, caption_inds, references, candidates = self.get_data_list(split_name)
+        scores = compute_polos(candidates, references, image_paths)
 
         self.log_scores(split_name, image_ids, caption_inds, 'polos', scores)
 
-    def compute_clip_image_score(self, split_name):
-        from diffusers import AutoPipelineForText2Image
-        import clip
-
-        device = torch.device('cuda')
-        pipeline_text2image = AutoPipelineForText2Image.from_pretrained(
-            "stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=torch.float16, variant="fp16", use_safetensors=True
-        ).to(device)
-
-        clip_model, preprocess = clip.load("ViT-B/32", device=device)
-        cos_sim = nn.CosineSimilarity()
-
-        # Collect references and candidates
-        temp_file = f'{self.get_name()}_{split_name}_tmp.pkl'
-        if os.path.isfile(temp_file):
-            print(f'Loading data from file: {temp_file}', flush=True)
-            with open(temp_file, 'rb') as fp:
-                self.data = pickle.load(fp)
-        count = 0
-        image_ids, images, caption_inds, _, candidates = self.get_data_list(split_name, img_obj=True)
-        prev_image_id = None
-        scores = []
-        with torch.no_grad():
-            for image_id, orig_image, caption_ind, candidate in tqdm(zip(image_ids, images, caption_inds, candidates)):
-                if image_id != prev_image_id:
-                    if count % 100 == 0:
-                        with open(temp_file, 'wb') as fp:
-                            pickle.dump(self.data, fp)
-                    count += 1
-                    orig_image = preprocess(orig_image).unsqueeze(0).to(device)
-                    orig_image_features = clip_model.encode_image(orig_image)
-                if 'CLIPImageScore' in self.data[split_name][image_id]['captions'][caption_ind]['automatic_metrics']:
-                    continue
-                reconstructed_image = pipeline_text2image(prompt=candidate).images[0]
-                reconstructed_image = preprocess(reconstructed_image).unsqueeze(0).to(device)
-                reconstructed_image_features = clip_model.encode_image(reconstructed_image)
-                score = cos_sim(orig_image_features, reconstructed_image_features).item()
-                scores.append(score)
+    def compute_clip_image_score_for_split(self, split_name):
+        from metrics.clip_image_score import compute_clip_image_score
+        image_ids, image_paths, caption_inds, _, candidates = self.get_data_list(split_name)
+        
+        scores = compute_clip_image_score(candidates, image_paths)
 
         self.log_scores(split_name, image_ids, caption_inds, 'CLIPImageScore', scores)
-
-    def numpy_cosine_similarity(self, a, b):
-        return np.dot(a, b)/(np.linalg.norm(a)*np.linalg.norm(b))
     
-    def compute_mpnet_score(self, split_name, agg_method='mean'):
-        from sentence_transformers import SentenceTransformer
-
-        model = SentenceTransformer('all-mpnet-base-v2')
-        model.eval()
-
+    def compute_mpnet_score_for_split(self, split_name, agg_method='mean'):
+        from metrics.mpnet_score import compute_mpnet_score
         image_ids, _, caption_inds, references, candidates = self.get_data_list(split_name)
-        scores = []
-        for candidate, refs in zip(candidates, references):
-            with torch.no_grad():
-                cand_embedding = model.encode(candidate)
-                ref_embeddings = [model.encode(ref) for ref in refs]
-            cur_scores = [self.numpy_cosine_similarity(cand_embedding, ref_embedding).item() for ref_embedding in ref_embeddings]
-            if agg_method == 'mean':
-                score = statistics.mean(cur_scores)
-            elif agg_method == 'max':
-                score = max(cur_scores)
-            scores.append(score)
+        
+        scores = compute_mpnet_score(candidates, references, agg_method)
         
         self.log_scores(split_name, image_ids, caption_inds, 'MPNetScore', scores)
 
-    def compute_blip2(self, split_name):
-        from lavis.models import load_model_and_preprocess
-        import imageio.v2 as imageio
-
-        device = torch.device('cuda')
-        model, vis_processors, text_processors = load_model_and_preprocess("blip2_image_text_matching", "pretrain", device=device, is_eval=True)
-
-        image_ids, images, caption_inds, _, candidates = self.get_data_list(split_name, img_obj=True)
-        prev_image_id = None
-        scores = []
-        with torch.no_grad():
-            for image_id, raw_image, caption in zip(image_ids, images, candidates):
-                if image_id != prev_image_id:
-                    # Do this check somehow
-                    # im = imageio.imread(file_path)
-                    # if len(im.shape) != 3 or im.shape[2] != 3:
-                    #     continue
-                    img = vis_processors["eval"](raw_image).unsqueeze(0).to(device)
-                    prev_image_id = image_id
-                txt = text_processors["eval"](caption)
-                score = model({"image": img, "text_input": txt}, match_head='itc')
-                scores.append(score)
+    def compute_blip2score_for_split(self, split_name):
+        from metrics.blip2score import compute_blip2score
+        image_ids, image_paths, caption_inds, _, candidates = self.get_data_list(split_name)
+        
+        scores = compute_blip2score(candidates, image_paths)
 
         self.log_scores(split_name, image_ids, caption_inds, 'BLIP2Score', scores)
 
