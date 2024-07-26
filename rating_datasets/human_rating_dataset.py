@@ -158,15 +158,15 @@ class HumanRatingDataset:
         self.log_scores(split_name, image_ids, caption_inds, 'BLIP2Score', scores)
 
     def get_all_metrics(self, sort_by_type=False):
-        # all_metrics = list(set([x for dataset_data in self.data.values() for image_data in dataset_data.values() for caption_data in image_data['captions'] for x in caption_data['automatic_metrics'].keys()]))
-        # all_metrics = [x for x in all_metrics if not x.startswith('SPICE_')]
+        metrics_in_dataset = list(set([x for dataset_data in self.data.values() for image_data in dataset_data.values() for caption_data in image_data['captions'] for x in caption_data['automatic_metrics'].keys()]))
+        metrics_in_dataset = [x for x in metrics_in_dataset if not x.startswith('SPICE_')]
         if sort_by_type:
             all_metrics = ['BLEU1', 'BLEU2', 'BLEU3', 'BLEU4', 'CIDEr', 'Exact noun overlap', 'Exact verb overlap', 'METEOR', 'ROUGE', 'Fuzzy noun overlap', 'Fuzzy verb overlap', 'SPICE', 'MPNetScore', 'BLIP2Score', 'CLIPImageScore', 'CLIPScore', 'PACScore', 'RefCLIPScore', 'RefPACScore', 'polos']
         else:
             all_metrics = ['Exact noun overlap', 'Fuzzy noun overlap', 'Exact verb overlap', 'Fuzzy verb overlap', 'CLIPScore', 'RefCLIPScore', 'METEOR', 'PACScore', 'ROUGE', 'RefPACScore', 'SPICE', 'BLEU1', 'BLEU2', 'BLEU3', 'BLEU4', 'BLIP2Score', 'CIDEr', 'CLIPImageScore', 'MPNetScore', 'polos']
             all_metrics.sort()
 
-        return all_metrics
+        return [x for x in all_metrics if x in metrics_in_dataset]
 
     def predict_with_ensemble_weights(self, metric_res, ensemble_weights):
         prediction = 0
