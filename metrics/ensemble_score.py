@@ -61,6 +61,11 @@ def compute_ensemble_score(candidates, references, image_paths, weights=None):
                 from metrics.mpnet_score import compute_mpnet_score
                 mpnet_scores = compute_mpnet_score(candidates, references)
                 metric2scores[metric_name] = mpnet_scores
+            elif metric_name in ['Exact noun overlap', 'Fuzzy noun overlap', 'Exact verb overlap', 'Fuzzy verb overlap']:
+                from metrics.content_overlap_metrics import compute_content_overlap_metrics
+                overlap_scores = compute_content_overlap_metrics(candidates, references)
+                for overlap_metric_name, overlap_metric_scores in overlap_scores.items():
+                    metric2scores[overlap_metric_name] = overlap_metric_scores
             else:
                 supported_metric_list = ['Exact noun overlap', 'Fuzzy noun overlap', 'Exact verb overlap', 'Fuzzy verb overlap', 'CLIPScore', 'RefCLIPScore', 'METEOR', 'PACScore', 'ROUGE', 'RefPACScore', 'SPICE', 'BLEU1', 'BLEU2', 'BLEU3', 'BLEU4', 'BLIP2Score', 'CIDEr', 'CLIPImageScore', 'MPNetScore', 'polos']
                 assert False, f'Unsupported metric: {metric_name}, supported metrics are\n{", ".join(supported_metric_list)}'
