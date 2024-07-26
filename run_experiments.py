@@ -45,14 +45,15 @@ if __name__ == '__main__':
     else:
         print(f'Collecting data...')
         dataset.collect_data()
-        print(f'Dumping dataset to file: {dump_file}')
-        dataset.dump()
 
     with open('ensemble_weights.json', 'r') as fp:
         ensemble_weights = json.load(fp)
 
     print('Computing metrics...')
     dataset.compute_metrics(compute_clip_image_score=args.clip_image_score)
+
+    print(f'Dumping dataset to file: {dump_file}')
+    dataset.dump()
 
     if args.eval_method == 'correlation':
         res = dataset.compute_correlation(ensemble_weights=ensemble_weights)
