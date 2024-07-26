@@ -9,7 +9,7 @@ pip install -r requirements.txt
 bash install_metrics.sh
 ```
 
-2. Download the pacscore clip_ViT-B-32.pth fine-tuned checkpoint from the [pacscore repo](https://github.com/aimagelab/pacscore).
+2. Download the pacscore clip_ViT-B-32.pth fine-tuned checkpoint from the [pacscore repo](https://github.com/aimagelab/pacscore) and locate it under pacscore/checkpoints.
 
 ## Ensemble captioning evaluation
 To use the ensemble evaluation method with our proposed weights, use:
