@@ -1,5 +1,6 @@
 import argparse
 import os
+import json
 from rating_datasets.flickr8k_dataset import Flickr8kDataset
 from rating_datasets.composite_dataset import CompositeDataset
 from rating_datasets.thumb_dataset import ThumbDataset
@@ -47,12 +48,15 @@ if __name__ == '__main__':
         print(f'Dumping dataset to file: {dump_file}')
         dataset.dump()
 
+    with open('ensemble_weights.json', 'r') as fp:
+        ensemble_weights = json.load(fp)
+
     print('Computing metrics...')
     dataset.compute_metrics(compute_clip_image_score=args.clip_image_score)
 
     if args.eval_method == 'correlation':
-        res = dataset.compute_correlation()
+        res = dataset.compute_correlation(ensemble_weights=ensemble_weights)
     else:
-        res = dataset.pairwise_comparison()
+        res = dataset.pairwise_comparison(ensemble_weights=ensemble_weights)
 
     print(res)
