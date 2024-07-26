@@ -92,8 +92,6 @@ class HumanRatingDataset:
         metric_name_to_scores = compute_coco_metrics(candidates, references)
 
         # Log scores
-        image_ids = []
-        caption_inds = []
         for metric_name, scores in metric_name_to_scores.items():
             self.log_scores(split_name, image_ids, caption_inds, metric_name, scores)
     
