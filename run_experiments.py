@@ -56,7 +56,7 @@ if __name__ == '__main__':
     dataset.dump()
 
     if args.eval_method == 'correlation':
-        res = dataset.compute_correlation(ensemble_weights=ensemble_weights)
+        res = dataset.compute_correlation(ensemble_weights=ensemble_weights)[correlation_type]
     else:
         res = dataset.pairwise_comparison(ensemble_weights=ensemble_weights)
 
