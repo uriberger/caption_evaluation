@@ -54,12 +54,13 @@ Each human ratings datasets requires data from existing image captioning dataset
 - MSCOCO (needed for Composite, ThuMB and the Reformulations dataset): Download the 2014 val images from the [following link](https://cocodataset.org/#download).
 - For both MSCOCO and Flickr30k, download the Karpathy split json files (dataset_coco.json and dataset_flickr30k.json) from the [following link](https://www.kaggle.com/datasets/shtvkumar/karpathy-splits).
 - Pascal (needed for the Pascal50S dataset): Download the 2008 training/validation images from the [following link](http://host.robots.ox.ac.uk/pascal/VOC/voc2008/index.html#devkit).
-After downloading all of the above, unzip and untar where necessary, and update the relevant paths in the config.py file.
 #### Human rating datasets
 - Composite: Download the AMT results from the [following link](https://imagesdg.wordpress.com/image-to-scene-description-graph/).
 - ThuMB: Clone the ThuMB repo under the project root: `git clone https://github.com/jungokasai/THumB.git`
 - Pascal50S: Downloaded the consensus ratings from the [following link](https://vrama91.github.io/cider/).
 - The reformulations dataset is currently included in this github repository, for anonymity.
+
+After downloading all of the above, unzip and untar where necessary, and update the relevant paths in the config.py file.
 
 ### Run experiments
 To compute the correlation with human ratings, run the following:
