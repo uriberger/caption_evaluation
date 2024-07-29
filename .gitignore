@@ -14,3 +14,4 @@ THumB
 slurm-*.out
 pyCIDErConsensus
 *~
+content_score.py
