@@ -5,11 +5,10 @@ Python version: 3.9.2
 
 1. Run:
 ```
-pip install -r requirements.txt
-bash install_metrics.sh
+bash install.sh
 ```
 
-2. Download the pacscore clip_ViT-B-32.pth fine-tuned checkpoint from the [pacscore repo](https://github.com/aimagelab/pacscore).
+2. Download the pacscore clip_ViT-B-32.pth fine-tuned checkpoint from the [pacscore repo](https://github.com/aimagelab/pacscore) and locate it under pacscore/checkpoints.
 
 ## Ensemble captioning evaluation
 To use the ensemble evaluation method with our proposed weights, use:
@@ -20,7 +19,23 @@ scores = compute_ensemble_score(candidates, references, image_paths)
 ```
 Where `candidates` is a list of captions, `references` is a list of lists of reference captions, `image_paths` is a list of strings with locations of images. For example:
 ```
-Add example here
+import json
+from metrics.ensemble_score import compute_ensemble_score
+
+with open('example/references.json', 'r') as fp:
+    ref_dict = json.load(fp)
+
+with open('example/candidates.json', 'r') as fp:
+    cand_dict = json.load(fp)
+
+correct_candidates = [cand_dict['im1'], cand_dict['im2']]
+references = [ref_dict['im1'], ref_dict['im2']]
+image_paths = ['example/im1.jpg', 'example/im2.jpg']
+
+scores = compute_ensemble_score(correct_candidates, references, image_paths) # 0.9107, 0.9712
+
+incorrect_candidates = [cand_dict['im2'], cand_dict['im1']]
+scores = compute_ensemble_score(incorrect_candidates, references, image_paths) # 0.2022, 0.2118
 ```
 To use your own weights, provide a mapping from metric to weight using the `weights` arguments:
 ```
