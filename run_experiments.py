@@ -20,7 +20,7 @@ if __name__ == '__main__':
         dataset = Flickr8kDataset('expert')
         correlation_type = 'kendall_c' if args.correlation_type is None else args.correlation_type
     elif args.dataset == 'flickr8k_cf':
-        dataset = Flickr8kDataset('expert')
+        dataset = Flickr8kDataset('crowd_flower')
         correlation_type = 'kendall_b' if args.correlation_type is None else args.correlation_type
     elif args.dataset == 'composite':
         dataset = CompositeDataset()
