@@ -70,5 +70,5 @@ def compute_ensemble_score(candidates, references, image_paths, weights=None):
                 supported_metric_list = ['Exact noun overlap', 'Fuzzy noun overlap', 'Exact verb overlap', 'Fuzzy verb overlap', 'CLIPScore', 'RefCLIPScore', 'METEOR', 'PACScore', 'ROUGE', 'RefPACScore', 'SPICE', 'BLEU1', 'BLEU2', 'BLEU3', 'BLEU4', 'BLIP2Score', 'CIDEr', 'CLIPImageScore', 'MPNetScore', 'polos']
                 assert False, f'Unsupported metric: {metric_name}, supported metrics are\n{", ".join(supported_metric_list)}'
 
-    ensemble_scores = [sum([x[1]*metric2scores[x[0]][i] for x in weights.items()]).item() for i in range(len(candidates))]
+    ensemble_scores = [sum([x[1]*float(metric2scores[x[0]][i]) for x in weights.items()]) for i in range(len(candidates))]
     return ensemble_scores
