@@ -30,6 +30,8 @@ class ReformulationsDataset(ImagePathRatingDataset):
 
         data = {'coco': {}, 'flickr30k': {}}
         for sample in samples:
+            if sample['question'].lower() == sample['answer'].lower():
+                continue # Remove samples where the original caption is identical to the reformulation
             cur_dataset = 'coco' if 'COCO' in sample['image'] else 'flickr30k'
             image_id = file_name2iid[cur_dataset](sample['image'].split('.')[0].split('/')[-1])
             if image_id not in data[cur_dataset]:
