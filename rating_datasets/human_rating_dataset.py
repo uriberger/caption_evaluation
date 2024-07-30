@@ -111,8 +111,6 @@ class HumanRatingDataset:
 
         self.log_scores(split_name, image_ids, caption_inds, 'PACScore', pac_scores)
         self.log_scores(split_name, image_ids, caption_inds, 'RefPACScore', refpac_scores)
-        
-        self.clean_temp_files()
     
     def compute_content_overlap_metrics_for_split(self, split_name):
         from metrics.content_overlap_metrics import compute_content_overlap_metrics
