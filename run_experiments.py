@@ -50,7 +50,10 @@ if __name__ == '__main__':
         ensemble_weights = json.load(fp)
 
     print('Computing metrics...')
-    dataset.compute_metrics(compute_clip_image_score=args.clip_image_score)
+    if args.dataset == 'polaris':
+        dataset.compute_metrics_for_split(split_name='test', compute_clip_image_score=args.clip_image_score)
+    else:
+        dataset.compute_metrics(compute_clip_image_score=args.clip_image_score)
 
     print(f'Dumping dataset to file: {dump_file}')
     dataset.dump()
