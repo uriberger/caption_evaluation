@@ -21,7 +21,7 @@ class ThumbDataset(ImagePathRatingDataset):
         for sample in samples:
             image_id = int(sample['image'].split('.')[0].split('_')[-1])
             if image_id not in data:
-                dir = '_'.join(sample['image'].split('_')[1])
+                dir = sample['image'].split('_')[1]
                 data[image_id] = {
                     'references': iid2refs[image_id],
                     'file_path': os.path.join(coco_image_dir_path, dir, sample["image"]),
