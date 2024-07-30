@@ -172,19 +172,19 @@ class HumanRatingDataset:
             prediction += weight * metric_res[metric_name]
         return prediction
 
-    def compute_correlation(self, plot=True, ensemble_weights=None, dataset_name=None, rating_column='human_ratings'):
+    def compute_correlation(self, plot=True, ensemble_weights=None, split=None, rating_column='human_ratings'):
         all_metrics = self.get_all_metrics()
         if ensemble_weights is not None:
             all_metrics.append('ensemble')
         human_rating_list = []
         metric_to_score_list = {metric: [] for metric in all_metrics}
         metric_to_missing_inds = {metric: set() for metric in all_metrics}
-        if dataset_name is None:
-            dataset_values = self.data.values()
+        if split is None:
+            split_values = self.data.values()
         else:
-            dataset_values = [self.data[dataset_name]]
-        for dataset_data in dataset_values:
-            for image_data in dataset_data.values():
+            split_values = [self.data[split]]
+        for split_data in split_values:
+            for image_data in split_data.values():
                 for caption_data in image_data['captions']:
                     for human_rating in caption_data[rating_column]:
                         for metric in all_metrics:
@@ -272,19 +272,19 @@ class HumanRatingDataset:
             fig.tight_layout()
             plt.savefig('mutual_corr.png')
 
-    def pairwise_comparison(self, ensemble_weights=None, dataset_name=None, tested_type=None):
+    def pairwise_comparison(self, ensemble_weights=None, split=None, tested_type=None):
         all_metrics = self.get_all_metrics()
         if ensemble_weights is not None:
             all_metrics.append('ensemble')
         metric_to_correct_count = {metric: 0 for metric in all_metrics}
         metric_to_all_count = {metric: 0 for metric in all_metrics}
         pair_limit = None
-        if dataset_name is None:
-            dataset_items = self.data.items()
+        if split is None:
+            split_items = self.data.items()
         else:
-            dataset_items = [(dataset_name, self.data[dataset_name])]
-        for dataset_name, dataset_data in dataset_items:
-            for image_data in tqdm(dataset_data.values(), desc=f'Pairwise comparison on {self.get_name()}, {dataset_name}'):
+            split_items = [(split, self.data[split])]
+        for split_name, split_data in split_items:
+            for image_data in tqdm(split_data.values(), desc=f'Pairwise comparison on {self.get_name()}, {split_name}'):
                 if 'pair' in image_data['captions'][0]:
                     pairs_for_comparison = []
                     visited_inds = set()

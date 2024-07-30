@@ -55,9 +55,13 @@ if __name__ == '__main__':
     print(f'Dumping dataset to file: {dump_file}')
     dataset.dump()
 
+    split = None
+    if args.dataset == 'polaris':
+        split = 'test'
+
     if args.eval_method == 'correlation':
-        res = dataset.compute_correlation(ensemble_weights=ensemble_weights)[correlation_type]
+        res = dataset.compute_correlation(ensemble_weights=ensemble_weights, split=split)[correlation_type]
     else:
-        res = dataset.pairwise_comparison(ensemble_weights=ensemble_weights)
+        res = dataset.pairwise_comparison(ensemble_weights=ensemble_weights, split=split)
 
     print(res)
