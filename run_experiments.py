@@ -51,7 +51,7 @@ if __name__ == '__main__':
 
     print('Computing metrics...')
     if args.dataset == 'polaris':
-        dataset.compute_metrics_for_split(split_name='test', compute_clip_image_score=args.clip_image_score)
+        dataset.compute_metrics_for_split(split_name='test', compute_clip_image_score=args.clip_image_score, overwrite=False)
     else:
         dataset.compute_metrics(compute_clip_image_score=args.clip_image_score)
 
