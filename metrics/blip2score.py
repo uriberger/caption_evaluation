@@ -14,6 +14,7 @@ def compute_blip2score(candidates, image_paths):
             if image_path != prev_image_path:
                 im = imageio.imread(image_path)
                 if len(im.shape) != 3 or im.shape[2] != 3:
+                    scores.append(None)
                     continue
                 raw_image =  Image.open(image_path).convert("RGB")
                 img = vis_processors["eval"](raw_image).unsqueeze(0).to(device)
