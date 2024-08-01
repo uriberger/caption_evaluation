@@ -10,6 +10,6 @@ def compute_polos(candidates, references, image_paths):
     model = load_checkpoint(model_path)
     print('Model loaded!')
     print('Computing scores...', flush=True)
-    _, scores = model.predict(polos_data, batch_size=8, cuda=True)
+    _, scores = model.predict(polos_data, batch_size=1, cuda=True)
 
     return scores
