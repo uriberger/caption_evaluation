@@ -61,7 +61,8 @@ class HumanRatingDataset:
     
     def log_scores(self, split_name, image_ids, caption_inds, metric_name, scores):
         for image_id, caption_ind, score in zip(image_ids, caption_inds, scores):
-            self.data[split_name][image_id]['captions'][caption_ind]['automatic_metrics'][metric_name] = float(score)
+            if score is not None:
+                self.data[split_name][image_id]['captions'][caption_ind]['automatic_metrics'][metric_name] = float(score)
 
     def compute_metrics(self, compute_clip_image_score=False, overwrite=False):
         for split in self.data.keys():
