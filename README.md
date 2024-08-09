@@ -82,4 +82,4 @@ To replicate the analysis and plots regarding metric usage analysis from the pap
 ```
 python metric_usage_analysis.py
 ```
-This will generate figures 1,2,4,5,6 from the paper and will dump them in the project directory.
+This will generate figures 2,3,5 from the paper and will dump them in the project directory.
