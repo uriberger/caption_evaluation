@@ -3,7 +3,7 @@ import json
 reference_metrics = ['Exact noun overlap', 'Fuzzy noun overlap', 'Exact verb overlap', 'Fuzzy verb overlap', 'RefCLIPScore', 'METEOR', 'ROUGE', 'RefPACScore', 'SPICE', 'BLEU1', 'BLEU2', 'BLEU3', 'BLEU4', 'CIDEr', 'MPNetScore', 'polos']
 image_metrics = ['CLIPScore', 'RefCLIPScore', 'PACScore', 'RefPACScore', 'BLIP2Score', 'CLIPImageScore', 'polos']
 
-def compute_ensemble_score(candidates, references, image_paths, weights=None):
+def compute_ensembeval_score(candidates, references, image_paths, weights=None):
     assert type(candidates) == list, 'Please provide a list of candidates'
     assert set([type(x) for x in candidates]) == {str}, 'Each candidate should be a single caption'
     if references is not None:

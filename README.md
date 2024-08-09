@@ -13,14 +13,14 @@ bash install.sh
 ## Ensemble captioning evaluation
 To use the ensemble evaluation method with our proposed weights, use:
 ```
-from metrics.ensemble_score import compute_ensemble_score
+from metrics.ensembeval_score import compute_ensembeval_score
 
-scores = compute_ensemble_score(candidates, references, image_paths)
+scores = compute_ensembeval_score(candidates, references, image_paths)
 ```
 Where `candidates` is a list of captions, `references` is a list of lists of reference captions, `image_paths` is a list of strings with locations of images. For example:
 ```
 import json
-from metrics.ensemble_score import compute_ensemble_score
+from metrics.ensembeval_score import compute_ensembeval_score
 
 with open('example/references.json', 'r') as fp:
     ref_dict = json.load(fp)
@@ -32,14 +32,14 @@ correct_candidates = [cand_dict['im1'], cand_dict['im2']]
 references = [ref_dict['im1'], ref_dict['im2']]
 image_paths = ['example/im1.jpg', 'example/im2.jpg']
 
-scores = compute_ensemble_score(correct_candidates, references, image_paths) # 0.9107, 0.9712
+scores = compute_ensembeval_score(correct_candidates, references, image_paths) # 0.9107, 0.9712
 
 incorrect_candidates = [cand_dict['im2'], cand_dict['im1']]
-scores = compute_ensemble_score(incorrect_candidates, references, image_paths) # 0.2022, 0.2118
+scores = compute_ensembeval_score(incorrect_candidates, references, image_paths) # 0.2022, 0.2118
 ```
 To use your own weights, provide a mapping from metric to weight using the `weights` arguments:
 ```
-scores = compute_ensemble_score(candidates, references, image_paths, weights=your_weights)
+scores = compute_ensembeval_scorecandidates, references, image_paths, weights=your_weights)
 ```
 If none of the metrics in your provided weights use references or images, you can specify `None` in the corresponding argument.
 
