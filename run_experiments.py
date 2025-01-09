@@ -10,6 +10,7 @@ from rating_datasets.reformulations_dataset import ReformulationsDataset
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--ensemble_weight_file', default='ensemble_weights.json')
     parser.add_argument('--dataset', choices=['flickr8k_expert', 'flickr8k_cf', 'composite', 'thumb', 'polaris', 'pascal50', 'reformulations'], required=True)
     parser.add_argument('--eval_method', choices=['correlation', 'pairwise'], default='correlation')
     parser.add_argument('--correlation_type', choices=['pearson', 'spearman', 'kendall_b', 'kendall_c'])
@@ -46,7 +47,7 @@ if __name__ == '__main__':
         print(f'Collecting data...')
         dataset.collect_data()
 
-    with open('ensemble_weights.json', 'r') as fp:
+    with open(args.ensemble_weight_file, 'r') as fp:
         ensemble_weights = json.load(fp)
 
     print('Computing metrics...')
