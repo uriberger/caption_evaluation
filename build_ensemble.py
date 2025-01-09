@@ -1,9 +1,10 @@
 from rating_datasets.polaris_dataset import PolarisDataset
 import numpy as np
+import math
 from sklearn.feature_selection import SequentialFeatureSelector
 from sklearn.linear_model import LinearRegression
 
-def select_predictor_metrics():
+def select_predictor_metrics(normalize=False):
     train_set = PolarisDataset()
     train_set.load()
 
@@ -16,6 +17,10 @@ def select_predictor_metrics():
     X = np.zeros((N, len(all_metrics)))
     y = np.zeros(N)
 
+    if normalize:
+        metric_to_min_val = [math.inf for _ in all_metrics]
+        metric_to_max_val = [(-1)*math.inf for _ in all_metrics]
+
     cur_sample_ind = 0
     for dataset_data in train_set.data.values():
         for image_data in dataset_data.values():
@@ -24,8 +29,18 @@ def select_predictor_metrics():
                     y[cur_sample_ind] = human_rating
                     for metric_ind, metric in enumerate(all_metrics):
                         if metric in caption_data['automatic_metrics']:
-                            X[cur_sample_ind, metric_ind] = caption_data['automatic_metrics'][metric]
+                            val = caption_data['automatic_metrics'][metric]
+                            X[cur_sample_ind, metric_ind] = val
+                            if normalize:
+                                if val < metric_to_min_val[metric_ind]:
+                                    metric_to_min_val[metric_ind] = np.float64(val)
+                                if val > metric_to_max_val[metric_ind]:
+                                    metric_to_max_val[metric_ind] = np.float64(val)
                     cur_sample_ind += 1
+
+    if normalize:
+        X = X - metric_to_min_val
+        X = X / [metric_to_max_val[i] - metric_to_min_val[i] for i in range(len(all_metrics))]
 
     reg = LinearRegression()
     sfs = SequentialFeatureSelector(reg, direction='forward', tol=0.0001)
@@ -36,4 +51,7 @@ def select_predictor_metrics():
     reg = LinearRegression().fit(X, y)
     ensemble_weights = {selected_metrics[i]: reg.coef_[i] for i in range(len(selected_metrics))}
 
-    return ensemble_weights
+    if normalize:
+        return ensemble_weights, metric_to_min_val, metric_to_max_val
+    else:
+        return ensemble_weights

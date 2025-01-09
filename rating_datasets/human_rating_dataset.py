@@ -167,10 +167,28 @@ class HumanRatingDataset:
 
     def predict_with_ensemble_weights(self, metric_res, ensemble_weights):
         prediction = 0
-        for metric_name, weight in ensemble_weights.items():
-            if metric_name not in metric_res or np.isnan(metric_res[metric_name]):
-                continue
-            prediction += weight * metric_res[metric_name]
+        if type(ensemble_weights) is list:
+            # Normalized
+            weights = ensemble_weights[0]
+            min_vals = ensemble_weights[1]
+            max_vals = ensemble_weights[2]
+            metrics = weights.keys()
+            metrics.sort()
+            for metric_ind, metric_name in enumerate(metrics):
+                weight = weights[metric_name]
+                if metric_name not in metric_res or np.isnan(metric_res[metric_name]):
+                    continue
+                val = metric_res[metric_name]
+                adjusted_val = (val - min_vals[metric_ind])/(max_vals[metric_ind] - min_vals[metric_ind])
+                prediction += weight * adjusted_val
+        elif type(ensemble_weights) is dict:
+            # Non normalized
+            for metric_name, weight in ensemble_weights.items():
+                if metric_name not in metric_res or np.isnan(metric_res[metric_name]):
+                    continue
+                prediction += weight * metric_res[metric_name]
+        else:
+            assert False
         return prediction
 
     def compute_correlation(self, plot=True, ensemble_weights=None, split=None, rating_column='human_ratings'):
