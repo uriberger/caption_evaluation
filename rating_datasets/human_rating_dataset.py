@@ -172,7 +172,7 @@ class HumanRatingDataset:
             weights = ensemble_weights[0]
             min_vals = ensemble_weights[1]
             max_vals = ensemble_weights[2]
-            metrics = weights.keys()
+            metrics = list(weights.keys())
             metrics.sort()
             for metric_ind, metric_name in enumerate(metrics):
                 weight = weights[metric_name]
