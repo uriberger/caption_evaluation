@@ -50,12 +50,12 @@ def analyze_data(data):
     return metrics, y2mcount, y2count
 	
 def plot_metric_usage_per_year(metrics, y2mcount, window_size=None):
-    similarity_metrics = ['BLEU', 'CIDEr', 'METEOR', 'ROUGE', 'SPICE', 'retrieval', 'CLIPScore', 'Named entities PR', 'Object PR', 'BERTScore', 'CHAIR', 'RefCLIPScore', 'WMD', 'exact match', 'SSD', 'TER', 'NW', 'NIST', 'PACScore', 'Noun overlap', 'fuzzy Noun overlap', 'RefPACScore', 'Semantic Score', 'Word PR', 'Rword', 'SPIPE', 'Verb PR', 'Noun PR', 'SemSim', 'fuzzy Verb overlap', 'SPICE-U', 'Clinical factual accuracy', 'Verb overlap', 'BLIP2Score', 'CLIPImageScore', 'MPNetScore', 'GPT4V evaluation']
+    similarity_metrics = ['BLEU', 'CIDEr', 'METEOR', 'ROUGE', 'SPICE', 'Retrieval-based', 'CLIPScore', 'Named entities PR', 'Object PR', 'BERTScore', 'CHAIR', 'RefCLIPScore', 'WMD', 'exact match', 'SSD', 'TER', 'NW', 'NIST', 'PACScore', 'Noun overlap', 'fuzzy Noun overlap', 'RefPACScore', 'Semantic Score', 'Word PR', 'Rword', 'SPIPE', 'Verb PR', 'Noun PR', 'SemSim', 'fuzzy Verb overlap', 'SPICE-U', 'Clinical factual accuracy', 'Verb overlap', 'BLIP2Score', 'CLIPImageScore', 'MPNetScore', 'GPT4V evaluation']
     diversity_metrics = ['Div-n', 'mBLEU', 'novel', 'vocab', 'Self-CIDEr', 'unique', 'distinct', 'Self-BLEU', 'Tdiv', 'Dist', 'diversity edit dist', 'CIDErBtw', 'CLIP diversity', 'LSA']
     bias_metrics = ['Gender error', 'Gender ratio', 'BiasAmp', 'LIC']
     fluency_metrics = ['perplexity']
     syntactic_complexity_metrics = ['Yngve score']
-    standalone_metrics = ['BLEU', 'CIDEr', 'METEOR', 'ROUGE', 'SPICE', 'retrieval', 'CLIPScore']
+    standalone_metrics = ['BLEU', 'CIDEr', 'METEOR', 'ROUGE', 'SPICE', 'Retrieval-based', 'CLIPScore']
     window_size = None
     plt.clf()
     plt.figure().set_figheight(4)
@@ -76,9 +76,9 @@ def plot_metric_usage_per_year(metrics, y2mcount, window_size=None):
             smoothed_years = range(new_x_size)
             plt.plot(smoothed_years, smoothed_y, label=metric)
     other_similarity_metrics = [x for x in similarity_metrics if x not in standalone_metrics]
-    other_similarity_str = f'Other similarity metrics (N={len(other_similarity_metrics)})'
+    other_similarity_str = f'Other relation with gt metrics (N={len(other_similarity_metrics)})'
     other_similarity_y = [sum([y2mcount[year][x] for x in other_similarity_metrics]) for year in years]
-    fluency_str = f'Fluency metrics (N={len(fluency_metrics)})'
+    fluency_str = f'Human behavior metrics (N={len(fluency_metrics)})'
     fluency_y = [sum([y2mcount[year][x] for x in fluency_metrics]) for year in years]
     diversity_str = f'Diversity metrics (N={len(diversity_metrics)})'
     diversity_y = [sum([y2mcount[year][x] for x in diversity_metrics]) for year in years]
@@ -225,6 +225,33 @@ def plot_framework_usage_per_year(data, y2mcount, window_size=4):
     plt.ylabel('# of papers that used the framework')
     plt.savefig('framework_usage_per_year.png')
 
+def plot_lexical_percentage_per_year(data, y2mcount, window_size=4):
+    lexical_metrics = ['BLEU', 'CIDEr', 'METEOR', 'ROUGE', 'CHAIR', 'exact match', 'TER', 'NIST']
+    diversity_metrics = ['Div-n', 'mBLEU', 'novel', 'vocab', 'Self-CIDEr', 'unique', 'distinct', 'Self-BLEU', 'Tdiv', 'Dist', 'diversity edit dist', 'CIDErBtw', 'CLIP diversity', 'LSA']
+    bias_metrics = ['Gender error', 'Gender ratio', 'BiasAmp', 'LIC']
+    # image_considering_metrics = ['Retrieval-based', 'CLIPScore', 'RefCLIPScore', 'PACScore', 'RefPACScore', 'Semantic Score', 'SPIPE', 'BLIP2Score', 'CLIPImageScore', 'GPT4V evaluation']
+
+    y2lex = {x[0]: sum([x[1][y] for y in lexical_metrics]) for x in y2mcount.items()}
+    y2content_count = {x[0]: sum([y[1] for y in x[1].items() if y[0] not in diversity_metrics and y[0] not in bias_metrics]) for x in y2mcount.items()}
+    y2lex_perc = {x[0]: x[1]/y2content_count[x[0]] for x in y2lex.items()}
+
+    plt.clf()
+    min_year = min(y2mcount.keys())
+    max_year = max(y2mcount.keys())
+    years = list(range(min_year, max_year+1))
+    years = years[:-1]
+    new_x_size = len(years) - window_size + 1
+    y = [y2lex_perc[year] for year in years]
+    if window_size is None:
+        plt.plot(years, y, color='black')
+    else:
+        smoothed_y = np.convolve(y, np.ones(window_size)/window_size, mode='valid')
+        smoothed_years = range(new_x_size)
+        plt.plot(smoothed_years, smoothed_y, color='black')
+    plt.xlabel('Year')
+    plt.ylabel('% of lexical metric usage relative to total metric usage')
+    plt.savefig('lexical_percentage_per_year.png')
+
 if __name__ == '__main__':
     data = collect_data()
     metrics, y2mcount, y2count = analyze_data(data)
@@ -233,3 +260,4 @@ if __name__ == '__main__':
     plot_mean_metric_num_per_year(y2mcount, y2count)
     plot_human_evaluation_per_year(data, y2count)
     plot_framework_usage_per_year(data, y2mcount)
+    plot_lexical_percentage_per_year(data, y2mcount)
