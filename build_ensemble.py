@@ -36,11 +36,15 @@ def select_predictor_metrics(normalize=False):
                                     metric_to_min_val[metric_ind] = np.float64(val)
                                 if val > metric_to_max_val[metric_ind]:
                                     metric_to_max_val[metric_ind] = np.float64(val)
+                        else:
+                            X[cur_sample_ind, metric_ind] = np.nan
                     cur_sample_ind += 1
 
     if normalize:
         X = X - metric_to_min_val
         X = X / [metric_to_max_val[i] - metric_to_min_val[i] for i in range(len(all_metrics))]
+
+    X = np.nan_to_num(X) # Convert all nans to zero
 
     reg = LinearRegression()
     sfs = SequentialFeatureSelector(reg, direction='forward', tol=0.0001)
