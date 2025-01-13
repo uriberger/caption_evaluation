@@ -4,7 +4,7 @@ import math
 from sklearn.feature_selection import SequentialFeatureSelector
 from sklearn.linear_model import LinearRegression
 
-def select_predictor_metrics(normalize=False):
+def select_predictor_metrics(normalize=False, direction='forward'):
     train_set = PolarisDataset()
     train_set.load()
 
@@ -47,7 +47,7 @@ def select_predictor_metrics(normalize=False):
     X = np.nan_to_num(X) # Convert all nans to zero
 
     reg = LinearRegression()
-    sfs = SequentialFeatureSelector(reg, direction='forward', tol=0.0001)
+    sfs = SequentialFeatureSelector(reg, direction=direction, tol=0.0001)
     sfs.fit(X, y)
     support = sfs.get_support()
     selected_metrics = [all_metrics[i] for i in range(len(all_metrics)) if support[i]]
