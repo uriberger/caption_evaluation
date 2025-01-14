@@ -6,7 +6,7 @@ from sklearn.metrics import silhouette_score
 
 dataset = PolarisDataset()
 dataset.load()
-selected_metrics = ['BLIP2Score', 'polos', 'PACScore', 'Exact noun overlap', 'BLEU1', 'Fuzzy verb overlap', 'BLEU4', 'CIDEr', 'ROUGE', 'RefCLIPScore']
+selected_metrics = ['BLIP2Score', 'polos', 'PACScore', 'CLIPScore', 'Exact noun overlap', 'Fuzzy noun overlap', 'BLEU1', 'Exact verb overlap', 'Fuzzy verb overlap', 'BLEU2', 'BLEU3', 'BLEU4', 'CIDEr', 'ROUGE', 'RefPACScore', 'RefCLIPScore', 'SPICE', 'METEOR', 'CLIPImageScore', 'MPNetScore']
 
 human_rating_list = []
 metric_to_score_list = {metric: [] for metric in selected_metrics}
