@@ -40,7 +40,7 @@ best_silhouette_score = -2
 best_labels = None
 best_cluster_num = 0
 for cluster_num in range(2, 9):
-    sc = SpectralClustering(n_clusters=N ,affinity='precomputed')
+    sc = SpectralClustering(n_clusters=cluster_num ,affinity='precomputed')
     cur_score = silhouette_score(corr_mat, sc.fit_predict(corr_mat))
     if cur_score > best_silhouette_score:
         best_silhouette_score = cur_score
