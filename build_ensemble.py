@@ -56,6 +56,8 @@ def select_predictor_metrics(normalize=False, direction='forward', tol=0.0001):
     ensemble_weights = {selected_metrics[i]: reg.coef_[i] for i in range(len(selected_metrics))}
 
     if normalize:
+        metric_to_min_val = [metric_to_min_val[i] for i in range(len(all_metrics)) if support[i]]
+        metric_to_max_val = [metric_to_max_val[i] for i in range(len(all_metrics)) if support[i]]
         return ensemble_weights, metric_to_min_val, metric_to_max_val
     else:
         return ensemble_weights
